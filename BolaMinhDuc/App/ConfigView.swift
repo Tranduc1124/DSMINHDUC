@@ -235,41 +235,34 @@ struct ConfigView: View {
             }
             .foregroundColor(Theme.dim)
 
-            HStack(spacing: 10) {
-                Button {
-                    if model.busy {
-                        model.cancelInject()
-                    } else {
-                        model.inject()
-                    }
-                } label: {
-                    VStack(spacing: 2) {
-                        HStack(spacing: 8) {
-                            Image(systemName: model.busy ? "xmark" : "bolt.fill")
-                            Text(model.busy ? "HỦY INJECT" : "INJECT")
-                                .tracking(1.2)
-                        }
-                        .font(.title3.weight(.black))
-                        Text(model.busy ? "nhấn để huỷ" : "cài patch & mở game")
-                            .font(.caption2.weight(.medium))
-                            .opacity(0.6)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                }
-                .buttonStyle(InjectButtonStyle(busy: model.busy))
-
-                Button {
+            Button {
+                if model.busy {
+                    // mid-operation → cancel it
+                    model.cancelInject()
+                } else if model.patchInstalled {
+                    // already injected → the button removes the patch
                     model.restore()
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 50, height: 50)
+                } else {
+                    model.inject()
                 }
-                .buttonStyle(GhostButtonStyle())
-                .disabled(model.busy)
-                .opacity(model.busy ? 0.4 : 1)
+            } label: {
+                VStack(spacing: 2) {
+                    HStack(spacing: 8) {
+                        Image(systemName: model.busy ? "xmark"
+                              : (model.patchInstalled ? "xmark.circle" : "bolt.fill"))
+                        Text(model.busy || model.patchInstalled ? "HỦY INJECT" : "INJECT")
+                            .tracking(1.2)
+                    }
+                    .font(.title3.weight(.black))
+                    Text(model.busy ? "nhấn để huỷ"
+                         : (model.patchInstalled ? "gỡ patch khỏi game" : "cài patch & mở game"))
+                        .font(.caption2.weight(.medium))
+                        .opacity(0.6)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 15)
             }
+            .buttonStyle(InjectButtonStyle(busy: model.busy || model.patchInstalled))
         }
     }
 

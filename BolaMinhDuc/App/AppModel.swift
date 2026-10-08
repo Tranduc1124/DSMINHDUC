@@ -13,6 +13,7 @@ final class AppModel: ObservableObject {
     @Published var statusText = "Đang chuẩn bị…"
     @Published var game: GameTarget = .freefireTH
     @Published var installedInfo = ""
+    @Published var patchInstalled = false
     @Published var logText = ""
     @Published var busy = false
     @Published var alertText: String?
@@ -145,22 +146,10 @@ final class AppModel: ObservableObject {
 
     // MARK: - kernel (single run; INJECT joins a run already in flight)
 
-    /// Boot-scoped guard: the kernel exploit must not blindly re-run every
-    /// time the app is reopened. Running it twice in one boot session on an
-    /// already-dirty kernel is the main cause of panics, so:
-    ///   * access-first: if we can already reach the game container, skip it;
-    ///   * auto-run happens only ONCE per device boot;
-    ///   * re-opens within the same boot only run it on demand (INJECT).
-    private var currentBootTime: Int {
-        var tv = timeval()
-        var size = MemoryLayout<timeval>.size
-        let ok = sysctlbyname("kern.boottime", &tv, &size, nil, 0)
-        return ok == 0 ? Int(tv.tv_sec) : 0
-    }
-
-    private let lastBootKey = "bola_last_boot"
-    private let ranThisBootKey = "bola_ran_this_boot"
-
+    /// Auto-run policy: a sandbox escape only lives inside one process, so
+    /// every app launch needs a fresh run — but if the game container is
+    /// already reachable, the exploit is skipped (it is pointless then).
+    /// A second tap of INJECT joins the run already in flight.
     func ensureKernel(_ completion: @escaping (Bool) -> Void) {
         if kernelDone {
             completion(true)
@@ -175,7 +164,7 @@ final class AppModel: ObservableObject {
         guard !didBootstrap else { return }
         didBootstrap = true
 
-        // 1. already usable (escape from a previous run still applies)?
+        // already usable? (escape from a previous run still applies)
         if Installer.hasAccess(to: game) {
             kernelDone = true
             phase = .active
@@ -186,25 +175,8 @@ final class AppModel: ObservableObject {
             return
         }
 
-        // 2. run automatically only once per device boot
-        let boot = currentBootTime
-        let lastBoot = UserDefaults.standard.integer(forKey: lastBootKey)
-        let ranThisBoot = UserDefaults.standard.bool(forKey: ranThisBootKey)
-
-        if boot != 0, boot != lastBoot {
-            UserDefaults.standard.set(boot, forKey: lastBootKey)
-            UserDefaults.standard.set(false, forKey: ranThisBootKey)
-        }
-
-        if ranThisBoot {
-            append("kernel: đã chạy trong lần khởi động máy này — KHÔNG chạy lại tự động (tránh panic)")
-            statusText = "Kernel chưa chạy phiên này — bấm INJECT khi cần"
-            phase = .idle
-            return
-        }
-
-        UserDefaults.standard.set(true, forKey: ranThisBootKey)
-        append("auto: mở app → chạy kernel ở nền (lần đầu trong boot)")
+        // no access yet → run the exploit in the background
+        append("auto: mở app → chạy exploit ở nền")
         ensureKernel { _ in }
     }
 
@@ -330,6 +302,7 @@ final class AppModel: ObservableObject {
 
     func refreshInstalled() {
         installedInfo = Installer.installedPatchInfo(for: game)
+        patchInstalled = Installer.patchExists(for: game)
     }
 
     func restore() {

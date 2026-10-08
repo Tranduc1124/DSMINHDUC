@@ -90,6 +90,11 @@ enum Installer {
         return false
     }
 
+    static func patchExists(for game: GameTarget) -> Bool {
+        guard let container = containerPath(for: game.rawValue) else { return false }
+        return FileManager.default.fileExists(atPath: container + "/Documents/" + patchFileName)
+    }
+
     static func install(patch: URL, into game: GameTarget) -> InstallOutcome {
         guard let container = containerPath(for: game.rawValue) else {
             return InstallOutcome(
