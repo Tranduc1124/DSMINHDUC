@@ -111,10 +111,15 @@ struct ToastView: View {
     var close: () -> Void = {}
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "info.circle.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.white)
+        HStack(spacing: 11) {
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 30, height: 30)
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+            }
             Text(message)
                 .font(.footnote.weight(.medium))
                 .foregroundColor(.white)
@@ -145,6 +150,15 @@ struct CardButtonStyle: ButtonStyle {
     }
 }
 
+/// full-width row press highlight (settings rows)
+struct RowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? Color.white.opacity(0.05) : Color.clear)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 extension View {
     /// slides a custom toast in from the top whenever the binding is set
     func toastOverlay(_ text: Binding<String?>) -> some View {
@@ -152,7 +166,7 @@ extension View {
             if let msg = text.wrappedValue {
                 ToastView(message: msg, close: { text.wrappedValue = nil })
                     .padding(.horizontal, 18)
-                    .padding(.top, 8)
+                    .padding(.top, 18)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .zIndex(10)
             }

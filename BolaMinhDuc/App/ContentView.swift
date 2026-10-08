@@ -26,6 +26,7 @@ struct ContentView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView()
                 .presentationDragIndicator(.visible)
+                .presentationDetents([.fraction(0.85)])
         }
         .onAppear { model.bootstrap() }
         .onChange(of: scenePhase) { phase in

@@ -4,17 +4,29 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
 
+    @State private var appear = false
+
     var body: some View {
         ZStack {
             Theme.background
+            Circle()
+                .fill(Color.white.opacity(0.045))
+                .frame(width: 320, height: 320)
+                .blur(radius: 80)
+                .offset(y: -190)
+                .allowsHitTesting(false)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     header
                     rowsCard
                 }
                 .padding(.horizontal, 18)
-                .padding(.top, 26)
+                .padding(.top, 22)
                 .padding(.bottom, 32)
+                .opacity(appear ? 1 : 0)
+                .offset(y: appear ? 0 : 14)
+                .animation(.easeOut(duration: 0.35), value: appear)
+                .onAppear { appear = true }
             }
         }
         .toastOverlay($model.toastText)
@@ -25,12 +37,13 @@ struct SettingsView: View {
     private var header: some View {
         HStack(spacing: 14) {
             ZStack {
-                Circle()
-                    .fill(Theme.cardHi)
-                    .frame(width: 52, height: 52)
-                Image(systemName: "gearshape")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.white)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white)
+                    .frame(width: 54, height: 54)
+                    .shadow(color: .white.opacity(0.16), radius: 14, y: 4)
+                Image(systemName: "bolt.shield.fill")
+                    .font(.system(size: 25, weight: .bold))
+                    .foregroundColor(.black)
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text("Cài Đặt")
@@ -97,7 +110,7 @@ struct SettingsView: View {
             .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RowButtonStyle())
     }
 
     private var divider: some View {
