@@ -98,12 +98,8 @@ struct ConfigView: View {
             toggleRow("bot", "cpu", "Bot", "Hiện cả bot (AI)")
             toggleRow("count", "number", "Đếm Địch", "Số địch + bot ở trên màn hình")
         case .aim:
-            toggleRow("aim", "scope", "Aimbot", "Khoá mục tiêu gần tâm nhất trong FOV")
+            toggleRow("aim", "scope", "Aimbot", "Khoá địch gần tâm ngắm nhất")
             boneRow
-            toggleRow("fov", "circle.dashed", "Vòng FOV", "Vòng tròn phạm vi khoá mục tiêu")
-            if model.flag("fov") {
-                fovRow
-            }
         case .misc:
             placeholderRow("figure.run", "Tốc chạy", "Tăng tốc di chuyển")
             placeholderRow("arrow.up", "Nhảy cao", "Nhảy cao hơn")
