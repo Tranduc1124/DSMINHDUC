@@ -1,0 +1,11 @@
+# Xcode / build
+build/
+DerivedData/
+*.ipa
+Payload/
+BolaPatch.xcodeproj/
+xcuserdata/
+*.xcworkspace/
+
+# macOS
+.DS_Store
