@@ -4,7 +4,6 @@ import UIKit
 /// Tab 2 — CÀI ĐẶT (Delta-style rows, monochrome)
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var shareURL: URL?
 
     private let releasesPage = "https://github.com/Tranduc1124/DSMINHDUC/releases/latest"
 
@@ -19,7 +18,6 @@ struct SettingsView: View {
             .padding(.bottom, 24)
         }
         .background(Theme.background)
-        .background(ShareSheetPresenter(url: $shareURL))
     }
 
     private var header: some View {
@@ -51,9 +49,10 @@ struct SettingsView: View {
                 model.clearCache()
             }
             divider
-            row(icon: "square.and.arrow.up", title: "Chia sẻ ứng dụng",
-                subtitle: "Gửi link tải cho bạn bè") {
-                shareURL = URL(string: releasesPage)
+            row(icon: "doc.on.doc", title: "Sao chép link tải",
+                subtitle: "Copy link tải app cho bạn bè") {
+                UIPasteboard.general.string = releasesPage
+                model.alertText = "Đã sao chép link tải:\n\(releasesPage)"
             }
             divider
             row(icon: "info.circle", title: "Thông tin ứng dụng",
@@ -62,7 +61,7 @@ struct SettingsView: View {
                 BOLAMINHDUC \(DeviceInfo.appVersion)
                 Máy: \(DeviceInfo.machine)
                 Hệ điều hành: \(DeviceInfo.iosVersion)
-                Patch đang có: \(model.patches.count)
+                Patch: \(model.bundledPatch?.name ?? "—")
                 """
             }
         }
@@ -103,23 +102,5 @@ struct SettingsView: View {
             .fill(Theme.border)
             .frame(height: 1)
             .padding(.leading, 52)
-    }
-}
-
-/// tiny presenter that shows a UIActivityViewController when `url` is set
-struct ShareSheetPresenter: UIViewControllerRepresentable {
-    @Binding var url: URL?
-
-    func makeUIViewController(context: Context) -> UIViewController {
-        UIViewController()
-    }
-
-    func updateUIViewController(_ host: UIViewController, context: Context) {
-        guard let url, host.presentedViewController == nil else { return }
-        DispatchQueue.main.async {
-            let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-            host.present(activity, animated: true)
-            self.url = nil
-        }
     }
 }

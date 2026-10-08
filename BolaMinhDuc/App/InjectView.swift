@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Tab 1 — INJECT: device/status chips, game, patch and one white INJECT button.
+/// Tab 1 — INJECT: device/status chips, game and one white INJECT button.
 struct InjectView: View {
     @EnvironmentObject private var model: AppModel
 
@@ -10,7 +10,6 @@ struct InjectView: View {
                 header
                 chips
                 gameCard
-                patchCard
                 injectButton
                 extraRow
             }
@@ -19,9 +18,6 @@ struct InjectView: View {
             .padding(.bottom, 24)
         }
         .background(Theme.background)
-        .sheet(isPresented: $model.showImporter) {
-            DocumentPicker { url in model.importPicked(url) }
-        }
     }
 
     // MARK: header
@@ -120,57 +116,6 @@ struct InjectView: View {
         .card()
     }
 
-    // MARK: patch
-
-    private var patchCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("PATCH")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(Theme.dim)
-                    .tracking(1)
-                Spacer()
-                Button {
-                    model.showImporter = true
-                } label: {
-                    Label("Thêm", systemImage: "plus")
-                        .font(.caption.weight(.bold))
-                        .foregroundColor(.white)
-                }
-            }
-
-            if model.patches.isEmpty {
-                Text("Chưa có patch .bytes nào")
-                    .font(.caption)
-                    .foregroundColor(Theme.dim)
-            }
-
-            ForEach(model.patches) { patch in
-                Button {
-                    model.selectedName = patch.name
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: model.selectedPatch?.name == patch.name
-                              ? "largecircle.fill.circle" : "circle")
-                            .foregroundColor(.white)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(patch.name)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundColor(.white)
-                            Text("\(patch.size) bytes\(patch.bundled ? " • có sẵn" : " • đã thêm")")
-                                .font(.caption2)
-                                .foregroundColor(Theme.dimmer)
-                        }
-                        Spacer()
-                    }
-                    .padding(.vertical, 5)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .card()
-    }
-
     // MARK: inject
 
     private var injectButton: some View {
@@ -192,34 +137,20 @@ struct InjectView: View {
             .padding(.vertical, 16)
         }
         .buttonStyle(WhiteButtonStyle())
-        .disabled(model.busy || model.selectedPatch == nil)
-        .opacity(model.busy || model.selectedPatch == nil ? 0.5 : 1)
+        .disabled(model.busy)
+        .opacity(model.busy ? 0.5 : 1)
     }
 
     private var extraRow: some View {
-        HStack(spacing: 10) {
-            Button {
-                model.restore()
-            } label: {
-                Label("Xoá patch", systemImage: "trash")
-                    .font(.subheadline.weight(.medium))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(GhostButtonStyle())
-
-            Button {
-                model.deleteSelected()
-            } label: {
-                Label("Xoá khỏi app", systemImage: "minus.circle")
-                    .font(.subheadline.weight(.medium))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(GhostButtonStyle())
-            .disabled(model.selectedPatch?.bundled ?? true)
-            .opacity(model.selectedPatch?.bundled ?? true ? 0.4 : 1)
+        Button {
+            model.restore()
+        } label: {
+            Label("Xoá patch khỏi game", systemImage: "trash")
+                .font(.subheadline.weight(.medium))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
         }
+        .buttonStyle(GhostButtonStyle())
     }
 
     private var statusColor: Color {

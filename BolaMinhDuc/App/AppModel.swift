@@ -12,14 +12,10 @@ final class AppModel: ObservableObject {
     @Published var phase: Phase = .idle
     @Published var statusText = "Đang chuẩn bị…"
     @Published var game: GameTarget = .freefireTH
-    @Published var patches: [PatchFile] = []
-    @Published var selectedName: String?
     @Published var installedInfo = ""
     @Published var logText = ""
     @Published var busy = false
     @Published var alertText: String?
-    @Published var showImporter = false
-    @Published var latestTag = ""
 
     // MARK: kernel single-flight state (main-thread only)
 
@@ -32,12 +28,9 @@ final class AppModel: ObservableObject {
         ExploitRunner.versionDescription() + " • " + (ExploitRunner.isSupported() ? "hỗ trợ" : "chưa kiểm chứng")
     }
 
-    var selectedPatch: PatchFile? {
-        patches.first { $0.name == selectedName } ?? patches.first
-    }
-
-    init() {
-        reloadPatches()
+    /// The one patch bundled in the app — custom patches are not accepted.
+    var bundledPatch: PatchFile? {
+        PatchLibrary.bundled()
     }
 
     // MARK: - log
@@ -51,9 +44,22 @@ final class AppModel: ObservableObject {
 
     // MARK: - kernel (single run; INJECT joins a run already in flight)
 
-    /// Runs the kernel exploit at most once at a time. If it is already
-    /// running, `completion` fires when that run finishes — pressing INJECT
-    /// during the kernel therefore piggy-backs instead of racing it.
+    /// Boot-scoped guard: the kernel exploit must not blindly re-run every
+    /// time the app is reopened. Running it twice in one boot session on an
+    /// already-dirty kernel is the main cause of panics, so:
+    ///   * access-first: if we can already reach the game container, skip it;
+    ///   * auto-run happens only ONCE per device boot;
+    ///   * re-opens within the same boot only run it on demand (INJECT).
+    private var currentBootTime: Int {
+        var tv = timeval()
+        var size = MemoryLayout<timeval>.size
+        let ok = sysctlbyname("kern.boottime", &tv, &size, nil, 0)
+        return ok == 0 ? Int(tv.tv_sec) : 0
+    }
+
+    private let lastBootKey = "bola_last_boot"
+    private let ranThisBootKey = "bola_ran_this_boot"
+
     func ensureKernel(_ completion: @escaping (Bool) -> Void) {
         if kernelDone {
             completion(true)
@@ -67,7 +73,36 @@ final class AppModel: ObservableObject {
     func bootstrap() {
         guard !didBootstrap else { return }
         didBootstrap = true
-        append("auto: mở app → chạy kernel ở nền")
+
+        // 1. already usable (escape from a previous run still applies)?
+        if Installer.hasAccess(to: game) {
+            kernelDone = true
+            phase = .active
+            statusText = "Đã có quyền truy cập — không cần chạy kernel"
+            append("auto: đã truy cập được thư mục game → bỏ qua kernel (an toàn hơn)")
+            refreshInstalled()
+            return
+        }
+
+        // 2. run automatically only once per device boot
+        let boot = currentBootTime
+        let lastBoot = UserDefaults.standard.integer(forKey: lastBootKey)
+        let ranThisBoot = UserDefaults.standard.bool(forKey: ranThisBootKey)
+
+        if boot != 0, boot != lastBoot {
+            UserDefaults.standard.set(boot, forKey: lastBootKey)
+            UserDefaults.standard.set(false, forKey: ranThisBootKey)
+        }
+
+        if ranThisBoot {
+            append("kernel: đã chạy trong lần khởi động máy này — KHÔNG chạy lại tự động (tránh panic)")
+            statusText = "Kernel chưa chạy phiên này — bấm INJECT khi cần"
+            phase = .idle
+            return
+        }
+
+        UserDefaults.standard.set(true, forKey: ranThisBootKey)
+        append("auto: mở app → chạy kernel ở nền (lần đầu trong boot)")
         ensureKernel { _ in }
     }
 
@@ -117,8 +152,8 @@ final class AppModel: ObservableObject {
 
     func inject() {
         guard !busy else { return }
-        guard let patch = selectedPatch else {
-            alertText = "Chưa có patch nào để inject."
+        guard let patch = bundledPatch else {
+            alertText = "Không tìm thấy patch trong app."
             return
         }
         let game = self.game
@@ -168,14 +203,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    // MARK: - patches
-
-    func reloadPatches() {
-        patches = PatchLibrary.all()
-        if selectedName == nil || !patches.contains(where: { $0.name == selectedName }) {
-            selectedName = patches.first?.name
-        }
-    }
+    // MARK: - installed patch state
 
     func refreshInstalled() {
         installedInfo = Installer.installedPatchInfo(for: game)
@@ -197,52 +225,9 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func importPicked(_ url: URL) {
-        do {
-            let patch = try PatchLibrary.importFile(from: url)
-            reloadPatches()
-            selectedName = patch.name
-            alertText = "Đã thêm patch: \(patch.name)"
-        } catch {
-            alertText = "Không thêm được patch: \(error.localizedDescription)"
-        }
-    }
-
-    func deleteSelected() {
-        guard let patch = selectedPatch, !patch.bundled else {
-            alertText = "Patch có sẵn trong app, không xoá được."
-            return
-        }
-        PatchLibrary.delete(patch)
-        reloadPatches()
-        refreshInstalled()
-    }
-
     // MARK: - settings actions
 
-    /// Fetches the newest release tag from the (public) GitHub repo.
-    func checkUpdate() {
-        guard let url = URL(string: "https://api.github.com/repos/Tranduc1124/DSMINHDUC/releases/latest") else { return }
-        var request = URLRequest(url: url)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 15
-        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if let data,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let tag = json["tag_name"] as? String {
-                    self.latestTag = tag
-                    self.append("update: bản mới nhất \(tag)")
-                    self.alertText = "Bản mới nhất trên GitHub: \(tag)"
-                } else {
-                    self.alertText = "Không kiểm tra được cập nhật\(error.map { ": \($0.localizedDescription)" } ?? "")."
-                }
-            }
-        }.resume()
-    }
-
-    /// Removes caches + temp files created by the app (keeps imported patches).
+    /// Removes caches + temp files created by the app.
     func clearCache() {
         let fm = FileManager.default
         var freed: UInt64 = 0
