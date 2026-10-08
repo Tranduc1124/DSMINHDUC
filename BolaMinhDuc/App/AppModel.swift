@@ -17,7 +17,6 @@ final class AppModel: ObservableObject {
     @Published var logText = ""
     @Published var busy = false
     @Published var restoring = false
-    @Published var confirmUninject = false
     @Published var alertText: String?
 
     /// feature toggles shown in the app (pushed to the game live + persisted)
@@ -337,9 +336,6 @@ final class AppModel: ObservableObject {
     func refreshInstalled() {
         installedInfo = Installer.installedPatchInfo(for: game)
         patchInstalled = Installer.patchExists(for: game)
-        if !patchInstalled {
-            confirmUninject = false
-        }
     }
 
     func restore() {

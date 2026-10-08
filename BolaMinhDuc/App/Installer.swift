@@ -50,16 +50,22 @@ enum Installer {
         guard let container = containerPath(for: game.rawValue) else {
             return "Chưa đọc được thư mục game (cần kích hoạt exploit trước)."
         }
-        let patch = container + "/Documents/" + patchFileName
+        let docs = container + "/Documents"
         let fm = FileManager.default
-        guard let attrs = try? fm.attributesOfItem(atPath: patch) else {
-            return "Game sạch — chưa có patch."
+        var parts: [String] = []
+        if let attrs = try? fm.attributesOfItem(atPath: docs + "/" + patchFileName),
+           let size = (attrs[.size] as? NSNumber)?.intValue {
+            parts.append("patch: \(size) bytes")
+        } else {
+            parts.append("game sạch (chưa có patch)")
         }
-        let size = (attrs[.size] as? NSNumber)?.intValue ?? 0
-        let date = (attrs[.modificationDate] as? Date).map {
-            DateFormatter.localizedString(from: $0, dateStyle: .short, timeStyle: .medium)
-        } ?? "?"
-        return "Đang có patch: \(size) bytes • \(date)"
+        if fm.fileExists(atPath: docs + "/" + localConfigName) {
+            parts.append("localConfig: có")
+        }
+        if fm.fileExists(atPath: docs + "/" + patchFileName + ".bak") {
+            parts.append(".bak cũ: còn")
+        }
+        return parts.joined(separator: " • ")
     }
 
     /// Writes a tiny probe file into the game's Documents folder to prove the
