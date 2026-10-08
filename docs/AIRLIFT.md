@@ -127,7 +127,62 @@ loopback. VPN loopback của LocalDevVPN làm các service đó xuất hiện �
 `10.7.0.1` — app chỉ cần connect TCP tới đó là "nói chuyện" được với lockdownd/RSD.
 Đây là lý do mọi bản mod kiểu Delta đều yêu cầu pairing file + LocalDevVPN.
 
-## 6. Rủi ro / ghi chú
+## 6. Tự sinh pairing file NGAY TRÊN MÁY (không cần PC)
+
+> Ghi chú kiểm chứng: **3105 KHÔNG có code pairing** (đã grep cả repo: 0 kết quả
+> cho pairing/RSD/tunnel). Cái này là của **Delta** và của **StikDebug**.
+
+### Delta tự sinh được — bằng chứng trong binary
+
+```
+AirliftPairing
+startPairing (bgTask=%lu)
+listening on port %u (fd=%d, id=%@)
+advertising '%@' on port %u, txt=%@
+no device connected (cancelled=%d)
+pair-setup rc=%d err=%s
+_remotepairing-pairable-host._tcp.
+airliftDeviceIRK
+delta_pairing.plist            <- file nó tự sinh ra
+delta_pairing_import.plist
+public_key / private_key / identifier
+DeviceCertificate / HostCertificate / HostPrivateKey / RootCertificate
+imported pairing file (%llu bytes)
+.plist / .mobiledevicepairing / .mobilepair
+```
+
+### Cơ chế (host-side pairing qua loopback)
+
+1. App tự chạy **VPN loopback** (10.7.0.1) — không cần LocalDevVPN nếu app tự có
+   NetworkExtension (Delta tự lo phần VPN).
+2. App **advertise Bonjour** dịch vụ `_remotepairing-pairable-host._tcp.` —
+   đóng vai **pairing host** (giống như vai của PC trong flow thường).
+3. Daemon `remotepairing` của chính máy (qua loopback) **kết nối ngược vào app**;
+   app chạy **pair-setup** (SRP/Curve25519 + trao đổi chứng chỉ) → nhận
+   `DeviceCertificate`, cấp `HostCertificate/HostPrivateKey`.
+4. App lưu pairing record nội bộ → `delta_pairing.plist`.
+   Từ đây nó dùng record đó để mở **RSD tunnel** (mục 3) và AFC/house_arrest —
+   hoàn toàn không cần file pairing từ PC.
+
+### Code mẫu nên port từ đâu
+
+| Nguồn | Ghi chú |
+|---|---|
+| `StikDebug/StikDebug` (GPL) | app iOS **debug/JIT on-device, "powered by idevice"** — làm đúng luồng trên: VPN loopback + pair, tự sinh pairing file ngay trên máy. Đây là bản tham chiếu gần nhất để port. |
+| crate `idevice` (Rust, `jkcoxson/idevice`) | chính Delta nhúng (0.1.68): có `pairing_setup`, `rsd`, `afc`, `house_arrest`; StikDebug cũng dùng. |
+| `doronz88/pymobiledevice3` | `remote pair` — mô tả rõ message/format của pair-setup iOS 17+. |
+
+### Việc cần làm khi muốn thêm "tự sinh pairing" vào app mình
+
+1. Bật NetworkExtension (nội dung `packet-tunnel-provider`) để có VPN loopback
+   (hoặc yêu cầu LocalDevVPN như Delta bản cũ).
+2. Publish Bonjour `_remotepairing-pairable-host._tcp.` trên interface VPN.
+3. Nhận kết nối pairing → chạy pair-setup host-side (dùng `idevice` qua FFI,
+   hoặc port Swift từ StikDebug).
+4. Lưu record vào Documents (có thể share/backup), thêm nút Import/Xoá như Delta.
+5. Dùng record đó cho RSD tunnel → house_arrest → AFC (mục 3 của tài liệu này).
+
+## 7. Rủi ro / ghi chú
 
 - Pairing file **gắn với từng máy, có thể hết hạn** → phải import lại.
 - AFC qua house_arrest có thể bị Apple bịt ở iOS mới; Delta có cả MCM path để chống.
