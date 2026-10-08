@@ -1,4 +1,4 @@
-# BOLA PATCH (iOS)
+# BOLAMINHDUC (iOS)
 
 App iOS tự làm: chạy **kernel exploit + sandbox escape** (lấy từ dự án
 [3105](https://github.com/YangJiiii/3105), GPL-3.0) để có quyền đọc/ghi vào
@@ -11,7 +11,7 @@ Giao diện SwiftUI tự viết, không dùng app 3105.
 
 - **KÍCH HOẠT**: chạy `kexploit_opa334` → `sandbox_escape`, hiện log trực tiếp.
 - Chọn game: **Free Fire** (`com.dts.freefireth`) / **Free Fire MAX** (`com.dts.freefiremax`).
-- **Patch có sẵn trong app** (thư mục `BolaPatch/Patches/`) + **thêm patch từ Files**
+- **Patch có sẵn trong app** (thư mục `BolaMinhDuc/Patches/`) + **thêm patch từ Files**
   (app bật `UIFileSharingEnabled` nên thấy trong Files app).
 - **CÀI PATCH VÀO GAME**: copy patch vào `Documents/Assembly-CSharp-patch.bytes`
   của game, tự backup bản cũ thành `.bak`.
@@ -25,14 +25,14 @@ Giao diện SwiftUI tự viết, không dùng app 3105.
 cd bola-ios
 git init -b main
 git add .
-git commit -m "BolaPatch iOS"
+git commit -m "BolaMinhDuc iOS"
 git remote add origin https://github.com/<user>/bola-patch.git
 git push -u origin main
 ```
 
 2. Vào tab **Actions** → workflow `build-ipa` chạy tự động (hoặc bấm
-   `Run workflow`). Xong → tải artifact **BolaPatch-unsigned-ipa**.
-3. Giải nén được `BolaPatch-unsigned.ipa`, ký bằng **Esign / Sideloadly**
+   `Run workflow`). Xong → tải artifact **BolaMinhDuc-unsigned-ipa**.
+3. Giải nén được `BolaMinhDuc-unsigned.ipa`, ký bằng **Esign / Sideloadly**
    với **chứng chỉ enterprise** rồi cài lên máy.
 
 > Lưu ý giống 3105: phần can thiệp dữ liệu app khác chỉ hoạt động khi ký bằng
@@ -56,14 +56,14 @@ git push -u origin main
 ## Cập nhật patch về sau
 
 Sửa `patchsrc/` trong repo `MINHDUC` → `python build_patch.py` → copy
-`out/Assembly-CSharp-patch.bytes` vào `BolaPatch/Patches/<Tên>.bytes` → commit/push
+`out/Assembly-CSharp-patch.bytes` vào `BolaMinhDuc/Patches/<Tên>.bytes` → commit/push
 → Actions build IPA mới. Hoặc không cần build lại app: dùng nút **Thêm** để import
 file `.bytes` mới từ Files.
 
 ## Cấu trúc
 
 ```
-BolaPatch/
+BolaMinhDuc/
   App/            SwiftUI (ContentView, AppModel, Installer, ExploitRunner…)
   Exploit/        kernel exploit + sandbox escape (vendored từ 3105, GPL-3.0)
   Patches/        patch .bytes đóng sẵn trong app

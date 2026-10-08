@@ -3,7 +3,7 @@ build/
 DerivedData/
 *.ipa
 Payload/
-BolaPatch.xcodeproj/
+BolaMinhDuc.xcodeproj/
 xcuserdata/
 *.xcworkspace/
 

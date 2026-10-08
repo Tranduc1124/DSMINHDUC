@@ -1,4 +1,4 @@
-name: BolaPatch
+name: BolaMinhDuc
 options:
   bundleIdPrefix: com.bolaminhduc
   deploymentTarget:
@@ -19,17 +19,17 @@ settings:
     SWIFT_OPTIMIZATION_LEVEL: "-O"
 
 targets:
-  BolaPatch:
+  BolaMinhDuc:
     type: application
     platform: iOS
     sources:
-      - path: BolaPatch
+      - path: BolaMinhDuc
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bolaminhduc.bolapatch
-        PRODUCT_NAME: BolaPatch
+        PRODUCT_NAME: BolaMinhDuc
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: BOLA PATCH
+        INFOPLIST_KEY_CFBundleDisplayName: BOLAMINHDUC
         INFOPLIST_KEY_CFBundleShortVersionString: "1.0.0"
         INFOPLIST_KEY_CFBundleVersion: "1"
         INFOPLIST_KEY_UIFileSharingEnabled: YES
@@ -38,7 +38,7 @@ targets:
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleLightContent
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        SWIFT_OBJC_BRIDGING_HEADER: BolaPatch/BolaPatch-Bridging-Header.h
+        SWIFT_OBJC_BRIDGING_HEADER: BolaMinhDuc/BolaMinhDuc-Bridging-Header.h
         OTHER_LDFLAGS: "-lz"
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic

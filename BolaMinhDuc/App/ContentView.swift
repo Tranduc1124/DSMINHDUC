@@ -27,7 +27,7 @@ struct ContentView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "shield.lefthalf.filled")
                             .foregroundColor(.purple)
-                        Text("BOLA PATCH")
+                        Text("BOLAMINHDUC")
                             .font(.headline)
                             .foregroundColor(.white)
                     }

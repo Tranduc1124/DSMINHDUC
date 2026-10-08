@@ -16,15 +16,15 @@ The 3105 license applies only to material for which the project owner has the ri
 
 ---
 
-## BOLA PATCH (this fork)
+## BOLAMINHDUC (this fork)
 
 This project vendors **only** the kernel exploit + sandbox escape sources from
-[3105](https://github.com/YangJiiii/3105) into `BolaPatch/Exploit/`:
+[3105](https://github.com/YangJiiii/3105) into `BolaMinhDuc/Exploit/`:
 
 - `kexploit/kexploit_opa334.{h,m}`, `krw.{h,m}`, `kutils.{h,m}`, `offsets.{h,m}`,
   `vnode.{h,m}`, `xpaci.h`, `machine_info.h`, `sandbox_escape.{h,m}`
 
-The SwiftUI app around them (`BolaPatch/App/`) is original work released under
+The SwiftUI app around them (`BolaMinhDuc/App/`) is original work released under
 the same GPL-3.0 license. Upstream credit: 3105 by YangJiii, FilzaSlop and the
 sandbox-escape research by 0xjohnnydev/CrazyMind90, kernel exploit foundations
 by opa334 and contributors.

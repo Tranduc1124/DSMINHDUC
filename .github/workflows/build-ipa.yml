@@ -23,8 +23,8 @@ jobs:
       - name: Build (unsigned)
         run: |
           xcodebuild \
-            -project BolaPatch.xcodeproj \
-            -target BolaPatch \
+            -project BolaMinhDuc.xcodeproj \
+            -target BolaMinhDuc \
             -configuration Release \
             -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO \
@@ -35,15 +35,15 @@ jobs:
       - name: Package unsigned IPA
         run: |
           mkdir -p Payload
-          cp -R build/Release-iphoneos/BolaPatch.app Payload/
-          zip -qry BolaPatch-unsigned.ipa Payload
-          ls -la BolaPatch-unsigned.ipa
+          cp -R build/Release-iphoneos/BolaMinhDuc.app Payload/
+          zip -qry BolaMinhDuc-unsigned.ipa Payload
+          ls -la BolaMinhDuc-unsigned.ipa
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BolaPatch-unsigned-ipa
-          path: BolaPatch-unsigned.ipa
+          name: BolaMinhDuc-unsigned-ipa
+          path: BolaMinhDuc-unsigned.ipa
           retention-days: 30
 
       - name: Publish GitHub Release
@@ -53,7 +53,7 @@ jobs:
         run: |
           TAG="build-${{ github.run_number }}"
           cat > RELEASE_NOTES.md <<'NOTES'
-          BOLA PATCH (iOS) — bản build tự động.
+          BOLAMINHDUC (iOS) — bản build tự động.
 
           **Ký trước khi cài:** file `.ipa` này chưa được ký (unsigned).
           Dùng Esign / Sideloadly + chứng chỉ enterprise để ký rồi cài lên máy.
@@ -61,8 +61,8 @@ jobs:
           Nội dung: app SwiftUI + kernel exploit/sandbox escape (vendored từ 3105, GPL-3.0)
           để cài patch `Assembly-CSharp-patch.bytes` vào Free Fire.
           NOTES
-          gh release create "$TAG" BolaPatch-unsigned.ipa \
+          gh release create "$TAG" BolaMinhDuc-unsigned.ipa \
             --repo "${{ github.repository }}" \
-            --title "BOLA PATCH $TAG" \
+            --title "BOLAMINHDUC $TAG" \
             --notes-file RELEASE_NOTES.md \
             --latest

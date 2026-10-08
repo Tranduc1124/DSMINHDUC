@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct BolaPatchApp: App {
+struct BolaMinhDucApp: App {
     @StateObject private var model = AppModel()
 
     var body: some Scene {
