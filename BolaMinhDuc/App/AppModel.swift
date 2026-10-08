@@ -26,6 +26,9 @@ final class AppModel: ObservableObject {
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
 
+    /// "vi" or "en" -- in-app language
+    @Published var language: String = UserDefaults.standard.string(forKey: "bola_lang") ?? "vi"
+
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
     private var cancelRequested = false
 
@@ -74,6 +77,15 @@ final class AppModel: ObservableObject {
         aimBone = value
         UserDefaults.standard.set(value, forKey: "bola_bone")
         writeConfig()
+    }
+
+    func setLanguage(_ code: String) {
+        language = code
+        UserDefaults.standard.set(code, forKey: "bola_lang")
+    }
+
+    func tr(_ vi: String, _ en: String) -> String {
+        language == "en" ? en : vi
     }
 
     // MARK: - binary config (app -> game)
@@ -241,7 +253,7 @@ final class AppModel: ObservableObject {
     func inject() {
         guard !busy, !restoring, allowAction() else { return }
         guard let patch = bundledPatch else {
-            showToast("Không tìm thấy gói cài đặt trong app.")
+            showToast(tr("Không tìm thấy gói cài đặt trong app.", "Package not found in the app."))
             return
         }
         let game = self.game
@@ -268,7 +280,7 @@ final class AppModel: ObservableObject {
                 self.phase = .failed
                 self.statusText = "Có lỗi — thử lại nhé"
                 self.append("inject: kernel chưa sẵn sàng, huỷ inject")
-                self.showToast("Chưa sẵn sàng — chờ vài giây rồi thử lại nhé.")
+                self.showToast(self.tr("Chưa sẵn sàng — chờ vài giây rồi thử lại nhé.", "Not ready yet — try again in a few seconds."))
                 self.lastActionTime = Date()
                 return
             }
@@ -327,7 +339,8 @@ final class AppModel: ObservableObject {
         let ok = BolaLaunchApp(game.rawValue)
         append("launch: \(game.title) -> \(ok ? "đã gửi lệnh mở game" : "KHÔNG mở được")")
         if !ok {
-            showToast("Đã cài xong nhưng không mở được game — mở \(game.title) bằng tay giúp mình.")
+            showToast(tr("Đã cài xong nhưng không mở được game — mở \(game.title) bằng tay giúp mình.",
+                         "Installed, but the game didn't open — please open \(game.title) manually."))
         }
     }
 
@@ -376,6 +389,6 @@ final class AppModel: ObservableObject {
             }
         }
         append("cache: đã xoá \(freed) bytes")
-        showToast("Đã xoá bộ nhớ đệm (\(freed / 1024) KB).")
+        showToast(tr("Đã xoá bộ nhớ đệm (\(freed / 1024) KB).", "Cache cleared (\(freed / 1024) KB)."))
     }
 }

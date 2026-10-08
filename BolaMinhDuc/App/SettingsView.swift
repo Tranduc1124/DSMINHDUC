@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// CÀI ĐẶT — Delta-style sheet: big header, rounded rows card.
+/// CÀI ĐẶT — Delta-style sheet: big header, rounded rows card, language picker.
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
 
     @State private var appear = false
+    @State private var showLang = false
 
     var body: some View {
         ZStack {
@@ -30,6 +31,11 @@ struct SettingsView: View {
             }
         }
         .toastOverlay($model.toastText)
+        .sheet(isPresented: $showLang) {
+            languageSheet
+                .presentationDetents([.height(240)])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: header
@@ -46,7 +52,7 @@ struct SettingsView: View {
                     .foregroundColor(.black)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text("Cài Đặt")
+                Text(model.tr("Cài Đặt", "Settings"))
                     .font(.system(size: 28, weight: .heavy))
                     .foregroundColor(.white)
                 Text("BOLAMINHDUC \(DeviceInfo.appVersion)")
@@ -62,14 +68,22 @@ struct SettingsView: View {
 
     private var rowsCard: some View {
         VStack(spacing: 0) {
-            row(icon: "trash", title: "Xoá Bộ Nhớ Đệm",
-                subtitle: "File tạm trong app") {
+            row(icon: "globe",
+                title: model.tr("Ngôn ngữ", "Language"),
+                subtitle: model.language == "en" ? "English" : "Tiếng Việt") {
+                showLang = true
+            }
+            divider
+            row(icon: "trash",
+                title: model.tr("Xoá Bộ Nhớ Đệm", "Clear Cache"),
+                subtitle: model.tr("File tạm trong app", "Temporary app files")) {
                 model.clearCache()
             }
             divider
-            row(icon: "info.circle", title: "Thông Tin Ứng Dụng",
-                subtitle: "Phiên bản • thiết bị") {
-                model.showToast("BOLAMINHDUC \(DeviceInfo.appVersion)\nThiết bị: \(DeviceInfo.machine)\niOS: \(DeviceInfo.iosVersion)")
+            row(icon: "info.circle",
+                title: model.tr("Thông Tin Ứng Dụng", "App Info"),
+                subtitle: model.tr("Phiên bản • thiết bị", "Version • device")) {
+                model.showToast("BOLAMINHDUC \(DeviceInfo.appVersion)\n\(model.tr("Thiết bị", "Device")): \(DeviceInfo.machine)\niOS: \(DeviceInfo.iosVersion)")
             }
         }
         .background(Theme.card)
@@ -118,6 +132,54 @@ struct SettingsView: View {
             .fill(Theme.border)
             .frame(height: 1)
             .padding(.leading, 66)
+    }
+
+    // MARK: language sheet
+
+    private var languageSheet: some View {
+        ZStack {
+            Theme.background
+            VStack(spacing: 10) {
+                Text(model.tr("Chọn ngôn ngữ", "Choose language"))
+                    .font(.headline.weight(.heavy))
+                    .foregroundColor(.white)
+                    .padding(.top, 20)
+                    .padding(.bottom, 6)
+                langOption("vi", "Tiếng Việt")
+                langOption("en", "English")
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 18)
+        }
+    }
+
+    private func langOption(_ code: String, _ title: String) -> some View {
+        Button {
+            model.setLanguage(code)
+            showLang = false
+        } label: {
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                Spacer()
+                if model.language == code {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(model.language == code ? Theme.borderHi : Theme.border, lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(RowButtonStyle())
     }
 
 }

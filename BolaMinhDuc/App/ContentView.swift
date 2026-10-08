@@ -26,7 +26,7 @@ struct ContentView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView()
                 .presentationDragIndicator(.visible)
-                .presentationDetents([.fraction(0.85)])
+                .presentationDetents([.fraction(0.90)])
         }
         .onAppear { model.bootstrap() }
         .onChange(of: scenePhase) { phase in
@@ -35,6 +35,6 @@ struct ContentView: View {
                 model.refreshInstalled()
             }
         }
-        .toastOverlay($model.toastText)
+        .toastOverlay(showSettings ? Binding<String?>.constant(nil) : $model.toastText)
     }
 }

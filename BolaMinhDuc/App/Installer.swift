@@ -22,6 +22,11 @@ struct InstallOutcome {
 /// Finds another app's data container (by bundle id) and drops the patch
 /// file into its Documents folder. Requires the sandbox escape to be active.
 enum Installer {
+    // localized string helper (reads the app language directly)
+    private static func tr(_ vi: String, _ en: String) -> String {
+        (UserDefaults.standard.string(forKey: "bola_lang") ?? "vi") == "en" ? en : vi
+    }
+
     static let patchFileName = "Assembly-CSharp-patch.bytes"
     static let localConfigName = "localConfig.json"
     private static let applicationRoot = "/var/mobile/Containers/Data/Application"
@@ -48,14 +53,14 @@ enum Installer {
 
     static func installedPatchInfo(for game: GameTarget) -> String {
         guard let container = containerPath(for: game.rawValue) else {
-            return "Chưa kết nối được với game"
+            return tr("Chưa kết nối được với game", "Can't reach the game")
         }
         let docs = container + "/Documents"
         let fm = FileManager.default
         if fm.fileExists(atPath: docs + "/" + patchFileName) {
-            return "Đã cài đặt"
+            return tr("Đã cài đặt", "Installed")
         }
-        return "Chưa cài đặt"
+        return tr("Chưa cài đặt", "Not installed")
     }
 
     /// Writes a tiny probe file into the game's Documents folder to prove the
@@ -96,7 +101,8 @@ enum Installer {
         guard let container = containerPath(for: game.rawValue) else {
             return InstallOutcome(
                 ok: false,
-                message: "Không tìm thấy \(game.title). Kiểm tra game đã cài chưa nhé.")
+                message: tr("Không tìm thấy \(game.title). Kiểm tra game đã cài chưa nhé.",
+                            "\(game.title) not found. Check that the game is installed."))
         }
         let fm = FileManager.default
         let docs = container + "/Documents"
@@ -122,16 +128,17 @@ enum Installer {
             }
 
             return InstallOutcome(ok: true,
-                                  message: "Đã cài xong cho \(game.title). Mở game để kiểm tra nhé.")
+                                  message: tr("Đã cài xong cho \(game.title). Mở game để kiểm tra nhé.",
+                                              "Installed for \(game.title). Open the game to test."))
         } catch {
             return InstallOutcome(ok: false,
-                                  message: "Lỗi ghi file: \(error.localizedDescription)")
+                                  message: tr("Lỗi ghi file: ", "File error: ") + error.localizedDescription)
         }
     }
 
     static func restore(game: GameTarget) -> InstallOutcome {
         guard let container = containerPath(for: game.rawValue) else {
-            return InstallOutcome(ok: false, message: "Không tìm thấy thư mục game.")
+            return InstallOutcome(ok: false, message: tr("Không tìm thấy thư mục game.", "Game folder not found."))
         }
         let fm = FileManager.default
         let docs = container + "/Documents"
@@ -144,7 +151,7 @@ enum Installer {
         return InstallOutcome(
             ok: true,
             message: had
-                ? "Đã gỡ xong. Mở lại game để áp dụng nhé."
-                : "Chưa có gì để gỡ.")
+                ? tr("Đã gỡ xong. Mở lại game để áp dụng nhé.", "Removed. Reopen the game to apply.")
+                : tr("Chưa có gì để gỡ.", "Nothing to remove."))
     }
 }

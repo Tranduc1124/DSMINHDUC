@@ -71,10 +71,16 @@ struct HomeView: View {
 
     private var chips: some View {
         HStack(spacing: 8) {
-            chip(title: "THIẾT BỊ", value: DeviceInfo.machine, valueColor: .white)
-            chip(title: "HỆ ĐIỀU HÀNH", value: DeviceInfo.iosVersion, valueColor: .white)
-            chip(title: "TƯƠNG THÍCH",
-                 value: ExploitRunner.isSupported() ? "Tốt" : "Hạn chế",
+            chip(title: model.tr("THIẾT BỊ", "DEVICE"),
+                 value: DeviceInfo.machine,
+                 valueColor: .white)
+            chip(title: model.tr("HỆ ĐIỀU HÀNH", "SYSTEM"),
+                 value: DeviceInfo.iosVersion,
+                 valueColor: .white)
+            chip(title: model.tr("TƯƠNG THÍCH", "SUPPORT"),
+                 value: ExploitRunner.isSupported()
+                     ? model.tr("Tốt", "Good")
+                     : model.tr("Hạn chế", "Limited"),
                  valueColor: .white)
         }
     }
@@ -105,7 +111,7 @@ struct HomeView: View {
 
     private var gameList: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("CHỌN GAME")
+            Text(model.tr("CHỌN GAME", "SELECT GAME"))
                 .font(.system(size: 11, weight: .bold))
                 .foregroundColor(Theme.dim)
                 .tracking(1)
@@ -128,7 +134,7 @@ struct HomeView: View {
                             Text(game.title)
                                 .font(.headline.weight(.bold))
                                 .foregroundColor(.white)
-                            Text("Chỉnh chức năng & INJECT")
+                            Text(model.tr("Chỉnh chức năng & INJECT", "Features & INJECT"))
                                 .font(.caption)
                                 .foregroundColor(Theme.dim)
                         }

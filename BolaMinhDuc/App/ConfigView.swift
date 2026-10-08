@@ -52,7 +52,7 @@ struct ConfigView: View {
                 Text(game.title)
                     .font(.headline.weight(.heavy))
                     .foregroundColor(.white)
-                Text("Chỉnh chức năng")
+                Text(model.tr("Chỉnh chức năng", "Features"))
                     .font(.caption2)
                     .foregroundColor(Theme.dim)
             }
@@ -91,16 +91,25 @@ struct ConfigView: View {
     private var tabContent: some View {
         switch tab {
         case .esp:
-            toggleRow("box", "square.dashed", "Box", "Khung quanh người & bot")
-            toggleRow("line", "line.diagonal", "Line", "Đường kẻ từ tâm ngắm")
-            toggleRow("bone", "figure.walk", "Bone", "Khung xương người (skeleton)")
-            toggleRow("hp", "heart.fill", "Máu", "Thanh HP cho người & bot")
-            toggleRow("name", "textformat", "Tên", "Tên người chơi / bot")
-            toggleRow("dist", "ruler", "Khoảng cách", "Khoảng cách tới mục tiêu")
-            toggleRow("bot", "cpu", "Bot", "Hiện cả bot (AI)")
-            toggleRow("count", "number", "Đếm Địch", "Số địch + bot ở trên màn hình")
+            toggleRow("box", "square.dashed", "Box",
+                      model.tr("Khung quanh người & bot", "Box around players & bots"))
+            toggleRow("line", "line.diagonal", "Line",
+                      model.tr("Đường kẻ từ tâm ngắm", "Line from the crosshair"))
+            toggleRow("bone", "figure.walk", "Bone",
+                      model.tr("Khung xương người (skeleton)", "Player skeleton"))
+            toggleRow("hp", "heart.fill", model.tr("Máu", "Health"),
+                      model.tr("Thanh HP cho người & bot", "HP bar for players & bots"))
+            toggleRow("name", "textformat", model.tr("Tên", "Name"),
+                      model.tr("Tên người chơi / bot", "Player / bot name"))
+            toggleRow("dist", "ruler", model.tr("Khoảng cách", "Distance"),
+                      model.tr("Khoảng cách tới mục tiêu", "Distance to the target"))
+            toggleRow("bot", "cpu", "Bot",
+                      model.tr("Hiện cả bot (AI)", "Show bots (AI) too"))
+            toggleRow("count", "number", model.tr("Đếm Địch", "Enemy Count"),
+                      model.tr("Số địch + bot ở trên màn hình", "Enemies + bots shown on screen"))
         case .aim:
-            toggleRow("aim", "scope", "Aimbot", "Khoá địch gần tâm ngắm nhất")
+            toggleRow("aim", "scope", "Aimbot",
+                      model.tr("Khoá địch gần tâm ngắm nhất", "Lock the enemy nearest the crosshair"))
             boneRow
         case .misc:
             comingSoonCard
@@ -150,15 +159,15 @@ struct ConfigView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(width: 26)
-                Text("Vị trí khoá")
+                Text(model.tr("Vị trí khoá", "Lock position"))
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(.white)
                 Spacer()
             }
             HStack(spacing: 8) {
-                bonePill(0, "Đầu")
-                bonePill(1, "Cổ")
-                bonePill(2, "Ngực")
+                bonePill(0, model.tr("Đầu", "Head"))
+                bonePill(1, model.tr("Cổ", "Neck"))
+                bonePill(2, model.tr("Ngực", "Chest"))
             }
         }
         .padding(.horizontal, 14)
@@ -195,10 +204,11 @@ struct ConfigView: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundColor(.white)
-            Text("Đang phát triển")
+            Text(model.tr("Đang phát triển", "Coming soon"))
                 .font(.subheadline.weight(.bold))
                 .foregroundColor(.white)
-            Text("Các chức năng mới sẽ được thêm trong bản cập nhật sau")
+            Text(model.tr("Các chức năng mới sẽ được thêm trong bản cập nhật sau",
+                          "New features will arrive in a future update"))
                 .font(.caption)
                 .foregroundColor(Theme.dim)
                 .multilineTextAlignment(.center)
@@ -245,15 +255,23 @@ struct ConfigView: View {
                         Image(systemName: model.restoring ? "hourglass"
                               : (model.busy ? "xmark"
                               : (model.patchInstalled ? "xmark.circle" : "bolt.fill")))
-                        Text(model.restoring ? "ĐANG GỠ…"
-                             : (model.busy ? "HỦY INJECT"
-                             : (model.patchInstalled ? "HỦY INJECT" : "INJECT")))
+                        Text(model.restoring
+                             ? model.tr("ĐANG GỠ…", "REMOVING…")
+                             : (model.busy
+                                ? model.tr("HỦY INJECT", "CANCEL")
+                                : (model.patchInstalled
+                                   ? model.tr("HỦY INJECT", "CANCEL")
+                                   : "INJECT")))
                             .tracking(1.2)
                     }
                     .font(.title3.weight(.black))
-                    Text(model.restoring ? "vui lòng đợi"
-                         : (model.busy ? "nhấn để huỷ"
-                         : (model.patchInstalled ? "gỡ khỏi game" : "cài & mở game")))
+                    Text(model.restoring
+                         ? model.tr("vui lòng đợi", "please wait")
+                         : (model.busy
+                            ? model.tr("nhấn để huỷ", "tap to cancel")
+                            : (model.patchInstalled
+                               ? model.tr("gỡ khỏi game", "remove from the game")
+                               : model.tr("cài & mở game", "install & open the game"))))
                         .font(.caption2.weight(.medium))
                         .opacity(0.6)
                 }
@@ -305,7 +323,7 @@ struct SegmentButtonStyle: ButtonStyle {
     }
 }
 
-/// inject button: white when idle, outlined dark when busy (HỦY INJECT)
+/// inject button: white when idle, outlined dark when busy (CANCEL)
 struct InjectButtonStyle: ButtonStyle {
     var busy: Bool
 
