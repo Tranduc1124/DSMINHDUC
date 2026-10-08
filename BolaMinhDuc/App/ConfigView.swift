@@ -100,6 +100,7 @@ struct ConfigView: View {
         case .aim:
             toggleRow("aim", "scope", "Aimbot", "Khoá địch gần tâm ngắm nhất")
             boneRow
+            toggleRow("aagame", "wand.and.stars", "AA Game", "Lực hút tâm mặc định của game")
         case .misc:
             placeholderRow("figure.run", "Tốc chạy", "Tăng tốc di chuyển")
             placeholderRow("arrow.up", "Nhảy cao", "Nhảy cao hơn")
