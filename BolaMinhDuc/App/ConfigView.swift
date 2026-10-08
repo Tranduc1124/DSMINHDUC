@@ -91,19 +91,19 @@ struct ConfigView: View {
         case .esp:
             toggleRow("box", "square.dashed", "Box", "Khung quanh người & bot")
             toggleRow("line", "line.diagonal", "Line", "Đường kẻ từ tâm ngắm")
+            toggleRow("bone", "figure.walk", "Bone", "Khung xương người (skeleton)")
             toggleRow("hp", "heart.fill", "Máu", "Thanh HP cho người & bot")
             toggleRow("name", "textformat", "Tên", "Tên người chơi / bot")
             toggleRow("dist", "ruler", "Khoảng cách", "Khoảng cách tới mục tiêu")
             toggleRow("bot", "cpu", "Bot", "Hiện cả bot (AI)")
-            toggleRow("fov", "circle.dashed", "Vòng FOV", "Vòng tròn tâm ngắm")
             toggleRow("count", "number", "Đếm Địch", "Số địch + bot ở trên màn hình")
+        case .aim:
+            toggleRow("aim", "scope", "Aimbot", "Khoá mục tiêu gần tâm nhất trong FOV")
+            boneRow
+            toggleRow("fov", "circle.dashed", "Vòng FOV", "Vòng tròn phạm vi khoá mục tiêu")
             if model.flag("fov") {
                 fovRow
             }
-        case .aim:
-            placeholderRow("scope", "Aimbot", "Tự ngắm mục tiêu")
-            placeholderRow("dot.scope", "Kéo tâm", "Hút tâm theo mục tiêu")
-            placeholderRow("scope", "Headshot", "Ưu tiên đầu")
         case .misc:
             placeholderRow("figure.run", "Tốc chạy", "Tăng tốc di chuyển")
             placeholderRow("arrow.up", "Nhảy cao", "Nhảy cao hơn")
@@ -180,6 +180,53 @@ struct ConfigView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Theme.border, lineWidth: 1)
         )
+    }
+
+    private var boneRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: "figure.stand")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 26)
+                Text("Vị trí khoá")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                Spacer()
+            }
+            HStack(spacing: 8) {
+                bonePill(0, "Đầu")
+                bonePill(1, "Cổ")
+                bonePill(2, "Ngực")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Theme.border, lineWidth: 1)
+        )
+    }
+
+    private func bonePill(_ value: Int, _ title: String) -> some View {
+        Button {
+            model.setBone(value)
+        } label: {
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(model.aimBone == value ? .black : .white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(model.aimBone == value ? Color.white : Theme.cardHi)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(model.aimBone == value ? Color.clear : Theme.borderHi, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 
     private func placeholderRow(_ icon: String, _ title: String, _ subtitle: String) -> some View {

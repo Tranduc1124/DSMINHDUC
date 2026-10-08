@@ -20,10 +20,11 @@ final class AppModel: ObservableObject {
     @Published var alertText: String?
 
     /// feature toggles shown in the app (pushed to the game live + persisted)
-    static let cfgKeys = ["box", "line", "hp", "name", "dist", "bot", "fov", "count"]
+    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "fov", "count", "aim"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var fovRadius: Double = 18
+    @Published var aimBone: Int = 0
 
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
     private var cancelRequested = false
@@ -45,12 +46,13 @@ final class AppModel: ObservableObject {
             if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
                 d[k] = v
             } else {
-                d[k] = true
+                d[k] = (k == "aim") ? false : true
             }
         }
         cfgFlags = d
         let r = UserDefaults.standard.double(forKey: "bola_fovr")
         fovRadius = r == 0 ? 18 : r
+        aimBone = UserDefaults.standard.integer(forKey: "bola_bone")
     }
 
     var deviceInfo: String {
@@ -79,11 +81,18 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.set(value, forKey: "bola_fovr")
     }
 
+    func setBone(_ value: Int) {
+        aimBone = value
+        UserDefaults.standard.set(value, forKey: "bola_bone")
+        writeConfig()
+    }
+
     // MARK: - binary config (app -> game)
     //
     // bolacfg.bin = 16 obfuscated payload bytes + 4-byte CRC32 (little endian).
     // payload: "BOLA" | ver=1 | flags | fov% | 0...
-    // flags bits: 0 box, 1 line, 2 hp, 3 name, 4 dist, 5 bot, 6 fov.
+    // flags bits: 0 box, 1 line, 2 hp, 3 name, 4 dist, 5 bot, 6 fov, 7 count.
+    // byte 7: bit0 aim, bit1 skeleton bones; byte 8: aim bone (0 head, 1 neck, 2 chest).
     // The payload is XOR-ed with a per-index keystream, so a hand-edited file
     // without a matching checksum is ignored by the running patch.
 
@@ -123,6 +132,11 @@ final class AppModel: ObservableObject {
         if flag("count") { flags |= 128 }
         payload[5] = flags
         payload[6] = UInt8(max(5, min(45, Int(fovRadius.rounded()))))
+        var extra: UInt8 = 0
+        if flag("aim") { extra |= 1 }
+        if flag("bone") { extra |= 2 }
+        payload[7] = extra
+        payload[8] = UInt8(max(0, min(2, aimBone)))
         for i in 0..<16 {
             payload[i] ^= UInt8(truncatingIfNeeded: (0x5A + i * 0x37) ^ (i << 4))
         }
