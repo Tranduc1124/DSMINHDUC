@@ -20,7 +20,7 @@ final class AppModel: ObservableObject {
     @Published var alertText: String?
 
     /// feature toggles shown in the app (pushed to the game live + persisted)
-    static let cfgKeys = ["box", "line", "hp", "name", "dist", "bot", "fov"]
+    static let cfgKeys = ["box", "line", "hp", "name", "dist", "bot", "fov", "count"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var fovRadius: Double = 18
@@ -120,6 +120,7 @@ final class AppModel: ObservableObject {
         if flag("dist") { flags |= 16 }
         if flag("bot")  { flags |= 32 }
         if flag("fov")  { flags |= 64 }
+        if flag("count") { flags |= 128 }
         payload[5] = flags
         payload[6] = UInt8(max(5, min(45, Int(fovRadius.rounded()))))
         for i in 0..<16 {

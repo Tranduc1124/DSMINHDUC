@@ -96,6 +96,7 @@ struct ConfigView: View {
             toggleRow("dist", "ruler", "Khoảng cách", "Khoảng cách tới mục tiêu")
             toggleRow("bot", "cpu", "Bot", "Hiện cả bot (AI)")
             toggleRow("fov", "circle.dashed", "Vòng FOV", "Vòng tròn tâm ngắm")
+            toggleRow("count", "number", "Đếm Địch", "Số địch + bot ở trên màn hình")
             if model.flag("fov") {
                 fovRow
             }
