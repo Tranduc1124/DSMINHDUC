@@ -46,14 +46,14 @@ jobs:
           path: BolaMinhDuc-unsigned.ipa
           retention-days: 30
 
-      - name: Publish GitHub Release
+      - name: Publish GitHub Release (single release, overwrite each build)
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="build-${{ github.run_number }}"
+          REPO="${{ github.repository }}"
           cat > RELEASE_NOTES.md <<'NOTES'
-          BOLAMINHDUC (iOS) — bản build tự động.
+          BOLAMINHDUC (iOS) — luôn là bản build MỚI NHẤT (file IPA được ghi đè sau mỗi lần build).
 
           **Ký trước khi cài:** file `.ipa` này chưa được ký (unsigned).
           Dùng Esign / Sideloadly + chứng chỉ enterprise để ký rồi cài lên máy.
@@ -61,8 +61,10 @@ jobs:
           Nội dung: app SwiftUI + kernel exploit/sandbox escape (vendored từ 3105, GPL-3.0)
           để cài patch `Assembly-CSharp-patch.bytes` vào Free Fire.
           NOTES
-          gh release create "$TAG" BolaMinhDuc-unsigned.ipa \
-            --repo "${{ github.repository }}" \
-            --title "BOLAMINHDUC $TAG" \
-            --notes-file RELEASE_NOTES.md \
-            --latest
+          if ! gh release view latest --repo "$REPO" >/dev/null 2>&1; then
+            gh release create latest --repo "$REPO" \
+              --title "BOLAMINHDUC (bản mới nhất)" \
+              --notes-file RELEASE_NOTES.md \
+              --latest
+          fi
+          gh release upload latest BolaMinhDuc-unsigned.ipa --clobber --repo "$REPO"
