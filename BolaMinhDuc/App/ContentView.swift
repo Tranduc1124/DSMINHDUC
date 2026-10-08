@@ -1,43 +1,32 @@
 import SwiftUI
-import UIKit
 
-/// Root: two bottom tabs — INJECT và CÀI ĐẶT — with a pure black tab bar.
+/// Root: NavigationStack, no tab bar.
+/// Home -> Config(game) via push; Settings via Delta-style sheet.
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
-    @State private var tab = 0
-
-    init() {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor.black
-        appearance.shadowColor = UIColor.white.withAlphaComponent(0.08)
-        let item = appearance.stackedLayoutAppearance
-        item.normal.iconColor = UIColor.white.withAlphaComponent(0.45)
-        item.normal.titleTextAttributes = [.foregroundColor: UIColor.white.withAlphaComponent(0.45)]
-        item.selected.iconColor = UIColor.white
-        item.selected.titleTextAttributes = [.foregroundColor: UIColor.white]
-        UITabBar.appearance().standardAppearance = appearance
-        if #available(iOS 15.0, *) {
-            UITabBar.appearance().scrollEdgeAppearance = appearance
-        }
-    }
+    @State private var path: [GameTarget] = []
+    @State private var showSettings = false
 
     var body: some View {
-        TabView(selection: $tab) {
-            InjectView()
-                .tabItem {
-                    Label("INJECT", systemImage: "bolt.fill")
-                }
-                .tag(0)
-
-            SettingsView()
-                .tabItem {
-                    Label("CÀI ĐẶT", systemImage: "gearshape.fill")
-                }
-                .tag(1)
+        NavigationStack(path: $path) {
+            HomeView(
+                openGame: { game in
+                    model.game = game
+                    model.refreshInstalled()
+                    path.append(game)
+                },
+                openSettings: { showSettings = true }
+            )
+            .navigationDestination(for: GameTarget.self) { game in
+                ConfigView(game: game) { path.removeLast() }
+            }
         }
         .tint(.white)
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .presentationDragIndicator(.visible)
+        }
         .onAppear { model.bootstrap() }
         .onChange(of: scenePhase) { phase in
             if phase == .active {

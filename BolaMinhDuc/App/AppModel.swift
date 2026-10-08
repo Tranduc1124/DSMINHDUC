@@ -17,12 +17,35 @@ final class AppModel: ObservableObject {
     @Published var busy = false
     @Published var alertText: String?
 
+    /// feature toggles shown in the app (pushed to the game live + persisted)
+    static let cfgKeys = ["box", "line", "hp", "name", "dist", "bot", "fov"]
+
+    @Published var cfgFlags: [String: Bool] = [:]
+    @Published var fovRadius: Double = 18
+
+    /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
+    private var cancelRequested = false
+
     // MARK: kernel single-flight state (main-thread only)
 
     private var didBootstrap = false
     private var kernelInFlight = false
     private var kernelDone = false
     private var kernelWaiters: [(Bool) -> Void] = []
+
+    init() {
+        var d: [String: Bool] = [:]
+        for k in AppModel.cfgKeys {
+            if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
+                d[k] = v
+            } else {
+                d[k] = true
+            }
+        }
+        cfgFlags = d
+        let r = UserDefaults.standard.double(forKey: "bola_fovr")
+        fovRadius = r == 0 ? 18 : r
+    }
 
     var deviceInfo: String {
         ExploitRunner.versionDescription() + " • " + (ExploitRunner.isSupported() ? "hỗ trợ" : "chưa kiểm chứng")
@@ -31,6 +54,84 @@ final class AppModel: ObservableObject {
     /// The one patch bundled in the app — custom patches are not accepted.
     var bundledPatch: PatchFile? {
         PatchLibrary.bundled()
+    }
+
+    // MARK: - feature flags
+
+    func flag(_ key: String) -> Bool {
+        cfgFlags[key] ?? true
+    }
+
+    func setFlag(_ key: String, _ value: Bool) {
+        cfgFlags[key] = value
+        UserDefaults.standard.set(value, forKey: "bola_cfg_" + key)
+        writeConfig()
+    }
+
+    func setFovRadius(_ value: Double) {
+        fovRadius = value
+        UserDefaults.standard.set(value, forKey: "bola_fovr")
+    }
+
+    // MARK: - binary config (app -> game)
+    //
+    // bolacfg.bin = 16 obfuscated payload bytes + 4-byte CRC32 (little endian).
+    // payload: "BOLA" | ver=1 | flags | fov% | 0...
+    // flags bits: 0 box, 1 line, 2 hp, 3 name, 4 dist, 5 bot, 6 fov.
+    // The payload is XOR-ed with a per-index keystream, so a hand-edited file
+    // without a matching checksum is ignored by the running patch.
+
+    private func crc32(_ bytes: [UInt8]) -> UInt32 {
+        var crc: UInt32 = 0xFFFFFFFF
+        for b in bytes {
+            crc ^= UInt32(b)
+            for _ in 0..<8 {
+                if (crc & 1) != 0 {
+                    crc = (crc >> 1) ^ 0xEDB88320
+                } else {
+                    crc >>= 1
+                }
+            }
+        }
+        return ~crc
+    }
+
+    /// Best-effort write; also called right before install so the file is
+    /// guaranteed fresh when the game starts.
+    func writeConfig() {
+        guard let container = Installer.containerPath(for: game.rawValue) else { return }
+        var payload = [UInt8](repeating: 0, count: 16)
+        payload[0] = 0x42
+        payload[1] = 0x4F
+        payload[2] = 0x4C
+        payload[3] = 0x41
+        payload[4] = 1
+        var flags: UInt8 = 0
+        if flag("box")  { flags |= 1 }
+        if flag("line") { flags |= 2 }
+        if flag("hp")   { flags |= 4 }
+        if flag("name") { flags |= 8 }
+        if flag("dist") { flags |= 16 }
+        if flag("bot")  { flags |= 32 }
+        if flag("fov")  { flags |= 64 }
+        payload[5] = flags
+        payload[6] = UInt8(max(5, min(45, Int(fovRadius.rounded()))))
+        for i in 0..<16 {
+            payload[i] ^= UInt8(truncatingIfNeeded: (0x5A + i * 0x37) ^ (i << 4))
+        }
+        var data = payload
+        let crc = crc32(payload)
+        data.append(UInt8(crc & 0xFF))
+        data.append(UInt8((crc >> 8) & 0xFF))
+        data.append(UInt8((crc >> 16) & 0xFF))
+        data.append(UInt8((crc >> 24) & 0xFF))
+        let path = container + "/Documents/bolacfg.bin"
+        do {
+            try Data(data).write(to: URL(fileURLWithPath: path), options: .atomic)
+            append("cfg: đã ghi bolacfg.bin")
+        } catch {
+            append("cfg: không ghi được bolacfg.bin")
+        }
     }
 
     // MARK: - log
@@ -81,6 +182,7 @@ final class AppModel: ObservableObject {
             statusText = "Đã có quyền truy cập — không cần chạy kernel"
             append("auto: đã truy cập được thư mục game → bỏ qua kernel (an toàn hơn)")
             refreshInstalled()
+            writeConfig()
             return
         }
 
@@ -157,6 +259,7 @@ final class AppModel: ObservableObject {
             return
         }
         let game = self.game
+        cancelRequested = false
         busy = true
         phase = .running
         statusText = kernelDone ? "Đang inject…" : "Chờ kernel (đang chạy) rồi inject…"
@@ -166,6 +269,13 @@ final class AppModel: ObservableObject {
 
         ensureKernel { [weak self] ok in
             guard let self else { return }
+            if self.cancelRequested {
+                self.busy = false
+                self.phase = .idle
+                self.statusText = "Đã huỷ inject"
+                self.append("inject: đã huỷ theo yêu cầu")
+                return
+            }
             guard ok || Installer.hasAccess(to: game) else {
                 self.busy = false
                 self.phase = .failed
@@ -174,23 +284,36 @@ final class AppModel: ObservableObject {
                 self.alertText = "Kernel chưa sẵn sàng — chờ vài giây rồi bấm INJECT lại."
                 return
             }
+            self.writeConfig()
             self.append("inject: kernel sẵn sàng → cài \(patch.name) vào \(game.title)")
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = Installer.install(patch: patch.url, into: game)
                 DispatchQueue.main.async {
                     self.busy = false
                     self.phase = .active
-                    self.statusText = result.ok ? "Đã inject — đang mở game" : "Inject lỗi"
                     self.append("inject: " + result.message)
                     self.refreshInstalled()
-                    if result.ok {
+                    if result.ok && !self.cancelRequested {
+                        self.statusText = "Đã inject — đang mở game"
                         self.launchGame()
+                    } else if result.ok {
+                        self.statusText = "Đã cài patch (chưa mở game)"
+                        self.append("inject: đã huỷ mở game theo yêu cầu")
                     } else {
+                        self.statusText = "Inject lỗi"
                         self.alertText = result.message
                     }
                 }
             }
         }
+    }
+
+    /// User tapped the button while inject is running: stop waiting / skip launch.
+    func cancelInject() {
+        guard busy else { return }
+        cancelRequested = true
+        statusText = "Đang huỷ…"
+        append("inject: người dùng bấm huỷ")
     }
 
     /// Opens the game with the same private API Delta Proxy uses.
