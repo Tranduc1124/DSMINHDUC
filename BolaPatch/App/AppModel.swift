@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 final class AppModel: ObservableObject {
-    enum Phase {
+    enum Phase: Equatable {
         case idle
         case running
         case active
