@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-15
@@ -42,3 +45,24 @@ jobs:
           name: BolaPatch-unsigned-ipa
           path: BolaPatch-unsigned.ipa
           retention-days: 30
+
+      - name: Publish GitHub Release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ github.run_number }}"
+          cat > RELEASE_NOTES.md <<'NOTES'
+          BOLA PATCH (iOS) — bản build tự động.
+
+          **Ký trước khi cài:** file `.ipa` này chưa được ký (unsigned).
+          Dùng Esign / Sideloadly + chứng chỉ enterprise để ký rồi cài lên máy.
+
+          Nội dung: app SwiftUI + kernel exploit/sandbox escape (vendored từ 3105, GPL-3.0)
+          để cài patch `Assembly-CSharp-patch.bytes` vào Free Fire.
+          NOTES
+          gh release create "$TAG" BolaPatch-unsigned.ipa \
+            --repo "${{ github.repository }}" \
+            --title "BOLA PATCH $TAG" \
+            --notes-file RELEASE_NOTES.md \
+            --latest
