@@ -46,18 +46,6 @@ struct SettingsView: View {
                 model.rerunKernel()
             }
             divider
-            row(icon: "arrow.triangle.2.circlepath", title: "Kiểm tra cập nhật",
-                subtitle: model.latestTag.isEmpty
-                    ? "So sánh với GitHub Releases"
-                    : "Bản mới nhất: \(model.latestTag)") {
-                model.checkUpdate()
-            }
-            divider
-            row(icon: "safari", title: "Tải bản mới trên GitHub",
-                subtitle: "Mở trang Releases") {
-                openURL(releasesPage)
-            }
-            divider
             row(icon: "trash", title: "Xoá bộ nhớ đệm",
                 subtitle: "File tạm trong app") {
                 model.clearCache()
@@ -115,11 +103,6 @@ struct SettingsView: View {
             .fill(Theme.border)
             .frame(height: 1)
             .padding(.leading, 52)
-    }
-
-    private func openURL(_ string: String) {
-        guard let url = URL(string: string) else { return }
-        UIApplication.shared.open(url)
     }
 }
 
