@@ -235,34 +235,65 @@ struct ConfigView: View {
             }
             .foregroundColor(Theme.dim)
 
-            Button {
-                if model.busy {
-                    // mid-operation → cancel it
-                    model.cancelInject()
-                } else if model.patchInstalled {
-                    // already injected → the button removes the patch
-                    model.restore()
-                } else {
-                    model.inject()
-                }
-            } label: {
-                VStack(spacing: 2) {
-                    HStack(spacing: 8) {
-                        Image(systemName: model.busy ? "xmark"
-                              : (model.patchInstalled ? "xmark.circle" : "bolt.fill"))
-                        Text(model.busy || model.patchInstalled ? "HỦY INJECT" : "INJECT")
-                            .tracking(1.2)
+            if model.confirmUninject && !model.busy {
+                // explicit confirmation before removing the patch
+                HStack(spacing: 10) {
+                    Button {
+                        model.restore()
+                    } label: {
+                        Text("XÁC NHẬN GỠ PATCH")
+                            .font(.subheadline.weight(.bold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
                     }
-                    .font(.title3.weight(.black))
-                    Text(model.busy ? "nhấn để huỷ"
-                         : (model.patchInstalled ? "gỡ patch khỏi game" : "cài patch & mở game"))
-                        .font(.caption2.weight(.medium))
-                        .opacity(0.6)
+                    .buttonStyle(GhostButtonStyle())
+
+                    Button {
+                        model.confirmUninject = false
+                    } label: {
+                        Text("KHÔNG")
+                            .font(.subheadline.weight(.bold))
+                            .frame(width: 92)
+                            .padding(.vertical, 14)
+                    }
+                    .buttonStyle(GhostButtonStyle())
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 15)
+            } else {
+                Button {
+                    if model.busy {
+                        if !model.restoring {
+                            model.cancelInject()
+                        }
+                    } else if model.patchInstalled {
+                        model.confirmUninject = true
+                    } else {
+                        model.inject()
+                    }
+                } label: {
+                    VStack(spacing: 2) {
+                        HStack(spacing: 8) {
+                            Image(systemName: model.restoring ? "hourglass"
+                                  : (model.busy ? "xmark"
+                                  : (model.patchInstalled ? "xmark.circle" : "bolt.fill")))
+                            Text(model.restoring ? "ĐANG GỠ PATCH…"
+                                 : (model.busy ? "HỦY INJECT"
+                                 : (model.patchInstalled ? "HỦY INJECT" : "INJECT")))
+                                .tracking(1.2)
+                        }
+                        .font(.title3.weight(.black))
+                        Text(model.restoring ? "vui lòng đợi"
+                             : (model.busy ? "nhấn để huỷ"
+                             : (model.patchInstalled ? "gỡ patch khỏi game" : "cài patch & mở game")))
+                            .font(.caption2.weight(.medium))
+                            .opacity(0.6)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                }
+                .buttonStyle(InjectButtonStyle(busy: model.busy || model.patchInstalled))
+                .disabled(model.restoring)
+                .opacity(model.restoring ? 0.55 : 1)
             }
-            .buttonStyle(InjectButtonStyle(busy: model.busy || model.patchInstalled))
         }
     }
 

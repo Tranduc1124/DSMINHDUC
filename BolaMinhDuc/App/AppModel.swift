@@ -16,6 +16,8 @@ final class AppModel: ObservableObject {
     @Published var patchInstalled = false
     @Published var logText = ""
     @Published var busy = false
+    @Published var restoring = false
+    @Published var confirmUninject = false
     @Published var alertText: String?
 
     /// feature toggles shown in the app (pushed to the game live + persisted)
@@ -26,6 +28,10 @@ final class AppModel: ObservableObject {
 
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
     private var cancelRequested = false
+
+    /// anti double-tap: ignore INJECT/RESTORE right after any completed action
+    private var lastActionTime = Date.distantPast
+    private let settleWindow: TimeInterval = 1.2
 
     // MARK: kernel single-flight state (main-thread only)
 
@@ -189,6 +195,7 @@ final class AppModel: ObservableObject {
         busy = true
         ensureKernel { ok in
             self.busy = false
+            self.lastActionTime = Date()
             self.phase = ok ? .active : .failed
             self.statusText = ok ? "Kernel OK — bấm INJECT" : "Kernel lỗi — thử lại"
         }
@@ -222,10 +229,18 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func allowAction() -> Bool {
+        if Date().timeIntervalSince(lastActionTime) < settleWindow {
+            append("ui: bỏ qua thao tác quá nhanh (chống bấm nhầm)")
+            return false
+        }
+        return true
+    }
+
     // MARK: - INJECT: wait for kernel (or join it), install patch, open game
 
     func inject() {
-        guard !busy else { return }
+        guard !busy, !restoring, allowAction() else { return }
         guard let patch = bundledPatch else {
             alertText = "Không tìm thấy patch trong app."
             return
@@ -246,6 +261,7 @@ final class AppModel: ObservableObject {
                 self.phase = .idle
                 self.statusText = "Đã huỷ inject"
                 self.append("inject: đã huỷ theo yêu cầu")
+                self.lastActionTime = Date()
                 return
             }
             guard ok || Installer.hasAccess(to: game) else {
@@ -254,6 +270,7 @@ final class AppModel: ObservableObject {
                 self.statusText = "Kernel lỗi — bấm Chạy lại exploit"
                 self.append("inject: kernel chưa sẵn sàng, huỷ inject")
                 self.alertText = "Kernel chưa sẵn sàng — chờ vài giây rồi bấm INJECT lại."
+                self.lastActionTime = Date()
                 return
             }
             self.writeConfig()
@@ -261,19 +278,36 @@ final class AppModel: ObservableObject {
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = Installer.install(patch: patch.url, into: game)
                 DispatchQueue.main.async {
-                    self.busy = false
-                    self.phase = .active
+                    if !result.ok {
+                        self.busy = false
+                        self.phase = .failed
+                        self.statusText = "Inject lỗi"
+                        self.append("inject: " + result.message)
+                        self.alertText = result.message
+                        self.refreshInstalled()
+                        self.lastActionTime = Date()
+                        return
+                    }
                     self.append("inject: " + result.message)
                     self.refreshInstalled()
-                    if result.ok && !self.cancelRequested {
+                    self.statusText = "Đã cài patch — chuẩn bị mở game…"
+
+                    // short window where HỦY still works; cancelling late
+                    // rolls the fresh patch back instead of launching
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                        self.busy = false
+                        self.lastActionTime = Date()
+                        if self.cancelRequested {
+                            let rb = Installer.restore(game: game)
+                            self.phase = .idle
+                            self.statusText = "Đã huỷ — đã gỡ patch"
+                            self.append("inject: huỷ muộn → gỡ patch vừa cài (" + rb.message + ")")
+                            self.refreshInstalled()
+                            return
+                        }
+                        self.phase = .active
                         self.statusText = "Đã inject — đang mở game"
                         self.launchGame()
-                    } else if result.ok {
-                        self.statusText = "Đã cài patch (chưa mở game)"
-                        self.append("inject: đã huỷ mở game theo yêu cầu")
-                    } else {
-                        self.statusText = "Inject lỗi"
-                        self.alertText = result.message
                     }
                 }
             }
@@ -303,17 +337,23 @@ final class AppModel: ObservableObject {
     func refreshInstalled() {
         installedInfo = Installer.installedPatchInfo(for: game)
         patchInstalled = Installer.patchExists(for: game)
+        if !patchInstalled {
+            confirmUninject = false
+        }
     }
 
     func restore() {
-        guard !busy else { return }
+        guard !busy, allowAction() else { return }
         let game = self.game
+        restoring = true
         busy = true
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = Installer.restore(game: game)
             DispatchQueue.main.async {
                 guard let self else { return }
+                self.restoring = false
                 self.busy = false
+                self.lastActionTime = Date()
                 self.append("restore: " + result.message)
                 self.alertText = result.message
                 self.refreshInstalled()

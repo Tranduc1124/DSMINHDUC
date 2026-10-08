@@ -23,6 +23,7 @@ struct InstallOutcome {
 /// file into its Documents folder. Requires the sandbox escape to be active.
 enum Installer {
     static let patchFileName = "Assembly-CSharp-patch.bytes"
+    static let localConfigName = "localConfig.json"
     private static let applicationRoot = "/var/mobile/Containers/Data/Application"
 
     /// nil when the container cannot be read (not activated / game missing).
@@ -108,14 +109,22 @@ enum Installer {
             if !fm.fileExists(atPath: docs) {
                 try fm.createDirectory(atPath: docs, withIntermediateDirectories: true)
             }
+            let backup = dest + ".bak"
+            if fm.fileExists(atPath: backup) {
+                try? fm.removeItem(atPath: backup)
+            }
             if fm.fileExists(atPath: dest) {
-                let backup = dest + ".bak"
-                if fm.fileExists(atPath: backup) {
-                    try? fm.removeItem(atPath: backup)
-                }
-                try? fm.moveItem(atPath: dest, toPath: backup)
+                try? fm.removeItem(atPath: dest)
             }
             try fm.copyItem(atPath: patch.path, toPath: dest)
+
+            // community config shipped with the patch (local-json fix)
+            if let cfg = Bundle.main.url(forResource: "localConfig", withExtension: "json") {
+                let cfgDest = docs + "/" + localConfigName
+                try? fm.removeItem(atPath: cfgDest)
+                try? fm.copyItem(atPath: cfg.path, toPath: cfgDest)
+            }
+
             return InstallOutcome(ok: true,
                                   message: "Đã cài patch vào \(game.title). Mở game để kiểm tra.")
         } catch {
@@ -129,21 +138,17 @@ enum Installer {
             return InstallOutcome(ok: false, message: "Không tìm thấy thư mục game.")
         }
         let fm = FileManager.default
-        let dest = container + "/Documents/" + patchFileName
-        guard fm.fileExists(atPath: dest) else {
-            return InstallOutcome(ok: true, message: "Không có patch để xoá.")
-        }
-        do {
-            let backup = dest + ".bak"
-            if fm.fileExists(atPath: backup) {
-                try? fm.removeItem(atPath: backup)
-            }
-            try fm.moveItem(atPath: dest, toPath: backup)
-            return InstallOutcome(ok: true,
-                                  message: "Đã xoá patch (bản cũ lưu tại .bak). Game về trạng thái sạch.")
-        } catch {
-            return InstallOutcome(ok: false,
-                                  message: "Lỗi xoá patch: \(error.localizedDescription)")
-        }
+        let docs = container + "/Documents"
+        let dest = docs + "/" + patchFileName
+        let had = fm.fileExists(atPath: dest)
+        // remove everything we install -- no backups kept around
+        try? fm.removeItem(atPath: dest)
+        try? fm.removeItem(atPath: dest + ".bak")
+        try? fm.removeItem(atPath: docs + "/" + localConfigName)
+        return InstallOutcome(
+            ok: true,
+            message: had
+                ? "Đã gỡ patch + config (xoá hẳn). Mở lại game để áp dụng."
+                : "Không có patch để xoá.")
     }
 }
