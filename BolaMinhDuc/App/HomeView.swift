@@ -6,6 +6,8 @@ struct HomeView: View {
     var openGame: (GameTarget) -> Void
     var openSettings: () -> Void
 
+    @State private var appear = false
+
     var body: some View {
         ZStack {
             Theme.background
@@ -14,11 +16,14 @@ struct HomeView: View {
                     header
                     chips
                     gameList
-                    footer
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 28)
+                .opacity(appear ? 1 : 0)
+                .offset(y: appear ? 0 : 12)
+                .animation(.easeOut(duration: 0.38), value: appear)
+                .onAppear { appear = true }
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -68,9 +73,9 @@ struct HomeView: View {
         HStack(spacing: 8) {
             chip(title: "THIẾT BỊ", value: DeviceInfo.machine, valueColor: .white)
             chip(title: "HỆ ĐIỀU HÀNH", value: DeviceInfo.iosVersion, valueColor: .white)
-            chip(title: "KERNEL",
-                 value: ExploitRunner.isSupported() ? "Hỗ trợ" : "?",
-                 valueColor: statusColor)
+            chip(title: "TƯƠNG THÍCH",
+                 value: ExploitRunner.isSupported() ? "Tốt" : "Hạn chế",
+                 valueColor: .white)
         }
     }
 
@@ -140,40 +145,9 @@ struct HomeView: View {
                             .stroke(Theme.border, lineWidth: 1)
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(CardButtonStyle())
             }
         }
     }
 
-    // MARK: footer
-
-    private var footer: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
-            Text(model.statusText)
-                .font(.caption)
-                .foregroundColor(Theme.dim)
-                .lineLimit(2)
-            Spacer()
-        }
-        .padding(12)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Theme.border, lineWidth: 1)
-        )
-        .padding(.top, 2)
-    }
-
-    private var statusColor: Color {
-        switch model.phase {
-        case .idle: return Theme.dimmer
-        case .running: return .yellow
-        case .active: return .green
-        case .failed: return .red
-        }
-    }
 }

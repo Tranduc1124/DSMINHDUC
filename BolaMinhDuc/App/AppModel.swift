@@ -17,13 +17,13 @@ final class AppModel: ObservableObject {
     @Published var logText = ""
     @Published var busy = false
     @Published var restoring = false
-    @Published var alertText: String?
+    @Published var toastText: String?
+    private var toastToken = 0
 
     /// feature toggles shown in the app (pushed to the game live + persisted)
-    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "fov", "count", "aim", "aagame"]
+    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim"]
 
     @Published var cfgFlags: [String: Bool] = [:]
-    @Published var fovRadius: Double = 18
     @Published var aimBone: Int = 0
 
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
@@ -50,13 +50,7 @@ final class AppModel: ObservableObject {
             }
         }
         cfgFlags = d
-        let r = UserDefaults.standard.double(forKey: "bola_fovr")
-        fovRadius = r == 0 ? 18 : r
         aimBone = UserDefaults.standard.integer(forKey: "bola_bone")
-    }
-
-    var deviceInfo: String {
-        ExploitRunner.versionDescription() + " • " + (ExploitRunner.isSupported() ? "hỗ trợ" : "chưa kiểm chứng")
     }
 
     /// The one patch bundled in the app — custom patches are not accepted.
@@ -76,11 +70,6 @@ final class AppModel: ObservableObject {
         writeConfig()
     }
 
-    func setFovRadius(_ value: Double) {
-        fovRadius = value
-        UserDefaults.standard.set(value, forKey: "bola_fovr")
-    }
-
     func setBone(_ value: Int) {
         aimBone = value
         UserDefaults.standard.set(value, forKey: "bola_bone")
@@ -90,8 +79,8 @@ final class AppModel: ObservableObject {
     // MARK: - binary config (app -> game)
     //
     // bolacfg.bin = 16 obfuscated payload bytes + 4-byte CRC32 (little endian).
-    // payload: "BOLA" | ver=1 | flags | fov% | 0...
-    // flags bits: 0 box, 1 line, 2 hp, 3 name, 4 dist, 5 bot, 6 fov, 7 count.
+    // payload: "BOLA" | ver=1 | flags | - | 0...
+    // flags bits: 0 box, 1 line, 2 hp, 3 name, 4 dist, 5 bot, 7 count.
     // byte 7: bit0 aim, bit1 skeleton bones; byte 8: aim bone (0 head, 1 neck, 2 chest).
     // The payload is XOR-ed with a per-index keystream, so a hand-edited file
     // without a matching checksum is ignored by the running patch.
@@ -128,14 +117,11 @@ final class AppModel: ObservableObject {
         if flag("name") { flags |= 8 }
         if flag("dist") { flags |= 16 }
         if flag("bot")  { flags |= 32 }
-        if flag("fov")  { flags |= 64 }
         if flag("count") { flags |= 128 }
         payload[5] = flags
-        payload[6] = UInt8(max(5, min(45, Int(fovRadius.rounded()))))
         var extra: UInt8 = 0
         if flag("aim") { extra |= 1 }
         if flag("bone") { extra |= 2 }
-        if !flag("aagame") { extra |= 4 }
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
         for i in 0..<16 {
@@ -165,6 +151,19 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Custom in-app popup (replaces the system alert) with auto-dismiss.
+    func showToast(_ text: String) {
+        toastText = text
+        toastToken += 1
+        let token = toastToken
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) { [weak self] in
+            guard let self else { return }
+            if self.toastToken == token {
+                self.toastText = nil
+            }
+        }
+    }
+
     // MARK: - kernel (single run; INJECT joins a run already in flight)
 
     /// Auto-run policy: a sandbox escape only lives inside one process, so
@@ -189,7 +188,7 @@ final class AppModel: ObservableObject {
         if Installer.hasAccess(to: game) {
             kernelDone = true
             phase = .active
-            statusText = "Đã có quyền truy cập — không cần chạy kernel"
+            statusText = "Đã sẵn sàng — không cần chuẩn bị lại"
             append("auto: đã truy cập được thư mục game → bỏ qua kernel (an toàn hơn)")
             refreshInstalled()
             writeConfig()
@@ -201,25 +200,10 @@ final class AppModel: ObservableObject {
         ensureKernel { _ in }
     }
 
-    /// manual retry: clears the previous failure and runs again
-    func rerunKernel() {
-        guard !kernelInFlight else { return }
-        kernelDone = false
-        phase = .running
-        statusText = "Đang chạy lại exploit…"
-        busy = true
-        ensureKernel { ok in
-            self.busy = false
-            self.lastActionTime = Date()
-            self.phase = ok ? .active : .failed
-            self.statusText = ok ? "Kernel OK — bấm INJECT" : "Kernel lỗi — thử lại"
-        }
-    }
-
     private func startKernelRun() {
         kernelInFlight = true
         phase = .running
-        statusText = "Kernel đang chạy nền…"
+        statusText = "Đang chuẩn bị…"
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             var ok = ExploitRunner.run { line in
                 DispatchQueue.main.async { self?.append(line) }
@@ -235,7 +219,7 @@ final class AppModel: ObservableObject {
                 self.kernelInFlight = false
                 self.kernelDone = ok
                 self.phase = ok ? .active : .failed
-                self.statusText = ok ? "Kernel OK — bấm INJECT" : "Kernel lỗi — thử lại"
+                self.statusText = ok ? "Sẵn sàng — bấm INJECT" : "Có lỗi — thử lại nhé"
                 self.refreshInstalled()
                 let waiters = self.kernelWaiters
                 self.kernelWaiters = []
@@ -257,14 +241,14 @@ final class AppModel: ObservableObject {
     func inject() {
         guard !busy, !restoring, allowAction() else { return }
         guard let patch = bundledPatch else {
-            alertText = "Không tìm thấy patch trong app."
+            showToast("Không tìm thấy gói cài đặt trong app.")
             return
         }
         let game = self.game
         cancelRequested = false
         busy = true
         phase = .running
-        statusText = kernelDone ? "Đang inject…" : "Chờ kernel (đang chạy) rồi inject…"
+        statusText = kernelDone ? "Đang inject…" : "Chờ một chút rồi inject…"
         if kernelInFlight {
             append("inject: kernel đang chạy — sẽ cài ngay khi xong")
         }
@@ -282,9 +266,9 @@ final class AppModel: ObservableObject {
             guard ok || Installer.hasAccess(to: game) else {
                 self.busy = false
                 self.phase = .failed
-                self.statusText = "Kernel lỗi — bấm Chạy lại exploit"
+                self.statusText = "Có lỗi — thử lại nhé"
                 self.append("inject: kernel chưa sẵn sàng, huỷ inject")
-                self.alertText = "Kernel chưa sẵn sàng — chờ vài giây rồi bấm INJECT lại."
+                self.showToast("Chưa sẵn sàng — chờ vài giây rồi thử lại nhé.")
                 self.lastActionTime = Date()
                 return
             }
@@ -298,14 +282,14 @@ final class AppModel: ObservableObject {
                         self.phase = .failed
                         self.statusText = "Inject lỗi"
                         self.append("inject: " + result.message)
-                        self.alertText = result.message
+                        self.showToast(result.message)
                         self.refreshInstalled()
                         self.lastActionTime = Date()
                         return
                     }
                     self.append("inject: " + result.message)
                     self.refreshInstalled()
-                    self.statusText = "Đã cài patch — chuẩn bị mở game…"
+                    self.statusText = "Đã cài — chuẩn bị mở game…"
 
                     // short window where HỦY still works; cancelling late
                     // rolls the fresh patch back instead of launching
@@ -315,7 +299,7 @@ final class AppModel: ObservableObject {
                         if self.cancelRequested {
                             let rb = Installer.restore(game: game)
                             self.phase = .idle
-                            self.statusText = "Đã huỷ — đã gỡ patch"
+                            self.statusText = "Đã huỷ — đã gỡ xong"
                             self.append("inject: huỷ muộn → gỡ patch vừa cài (" + rb.message + ")")
                             self.refreshInstalled()
                             return
@@ -343,7 +327,7 @@ final class AppModel: ObservableObject {
         let ok = BolaLaunchApp(game.rawValue)
         append("launch: \(game.title) -> \(ok ? "đã gửi lệnh mở game" : "KHÔNG mở được")")
         if !ok {
-            alertText = "Đã cài patch nhưng không mở được game — mở \(game.title) bằng tay giúp mình."
+            showToast("Đã cài xong nhưng không mở được game — mở \(game.title) bằng tay giúp mình.")
         }
     }
 
@@ -367,7 +351,7 @@ final class AppModel: ObservableObject {
                 self.busy = false
                 self.lastActionTime = Date()
                 self.append("restore: " + result.message)
-                self.alertText = result.message
+                self.showToast(result.message)
                 self.refreshInstalled()
             }
         }
@@ -392,6 +376,6 @@ final class AppModel: ObservableObject {
             }
         }
         append("cache: đã xoá \(freed) bytes")
-        alertText = "Đã xoá bộ nhớ đệm (\(freed / 1024) KB)."
+        showToast("Đã xoá bộ nhớ đệm (\(freed / 1024) KB).")
     }
 }

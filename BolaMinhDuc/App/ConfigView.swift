@@ -17,8 +17,11 @@ struct ConfigView: View {
                 ScrollView {
                     VStack(spacing: 10) {
                         tabContent
+                            .id(tab)
+                            .transition(.opacity)
                     }
                     .padding(.bottom, 8)
+                    .animation(.easeInOut(duration: 0.22), value: tab)
                 }
                 injectArea
             }
@@ -54,9 +57,8 @@ struct ConfigView: View {
                     .foregroundColor(Theme.dim)
             }
             Spacer()
-            Circle()
-                .fill(statusColor)
-                .frame(width: 9, height: 9)
+            StatusDot(color: statusColor)
+                .animation(.easeInOut(duration: 0.3), value: model.phase)
         }
     }
 
@@ -100,11 +102,8 @@ struct ConfigView: View {
         case .aim:
             toggleRow("aim", "scope", "Aimbot", "Khoá địch gần tâm ngắm nhất")
             boneRow
-            toggleRow("aagame", "wand.and.stars", "AA Game", "Lực hút tâm mặc định của game")
         case .misc:
-            placeholderRow("figure.run", "Tốc chạy", "Tăng tốc di chuyển")
-            placeholderRow("arrow.up", "Nhảy cao", "Nhảy cao hơn")
-            placeholderRow("infinity", "Đạn vô hạn", "Không giới hạn đạn")
+            comingSoonCard
         }
     }
 
@@ -136,41 +135,6 @@ struct ConfigView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Theme.border, lineWidth: 1)
-        )
-    }
-
-    private var fovRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                Image(systemName: "circle.circle")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 26)
-                Text("Bán kính FOV")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
-                Spacer()
-                Text("\(Int(model.fovRadius))%")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundColor(Theme.dim)
-            }
-            Slider(value: Binding(
-                get: { model.fovRadius },
-                set: { model.setFovRadius($0) }
-            ), in: 8...40, step: 1, onEditingChanged: { editing in
-                if !editing {
-                    model.writeConfig()
-                }
-            })
-            .tint(.white)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
         .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
@@ -226,44 +190,29 @@ struct ConfigView: View {
         .buttonStyle(.plain)
     }
 
-    private func placeholderRow(_ icon: String, _ title: String, _ subtitle: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
+    private var comingSoonCard: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 22, weight: .semibold))
                 .foregroundColor(.white)
-                .frame(width: 26)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
-                    Text("SẮP CÓ")
-                        .font(.system(size: 8, weight: .heavy))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.85))
-                        .clipShape(Capsule())
-                }
-                Text(subtitle)
-                    .font(.caption2)
-                    .foregroundColor(Theme.dimmer)
-                    .lineLimit(1)
-            }
-            Spacer()
-            Toggle("", isOn: .constant(false))
-                .labelsHidden()
-                .disabled(true)
-                .opacity(0.4)
+            Text("Đang phát triển")
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(.white)
+            Text("Các chức năng mới sẽ được thêm trong bản cập nhật sau")
+                .font(.caption)
+                .foregroundColor(Theme.dim)
+                .multilineTextAlignment(.center)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 26)
+        .padding(.horizontal, 18)
         .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(Theme.border, lineWidth: 1)
         )
+        .padding(.top, 6)
     }
 
     // MARK: inject
@@ -296,7 +245,7 @@ struct ConfigView: View {
                         Image(systemName: model.restoring ? "hourglass"
                               : (model.busy ? "xmark"
                               : (model.patchInstalled ? "xmark.circle" : "bolt.fill")))
-                        Text(model.restoring ? "ĐANG GỠ PATCH…"
+                        Text(model.restoring ? "ĐANG GỠ…"
                              : (model.busy ? "HỦY INJECT"
                              : (model.patchInstalled ? "HỦY INJECT" : "INJECT")))
                             .tracking(1.2)
@@ -304,7 +253,7 @@ struct ConfigView: View {
                     .font(.title3.weight(.black))
                     Text(model.restoring ? "vui lòng đợi"
                          : (model.busy ? "nhấn để huỷ"
-                         : (model.patchInstalled ? "gỡ patch khỏi game" : "cài patch & mở game")))
+                         : (model.patchInstalled ? "gỡ khỏi game" : "cài & mở game")))
                         .font(.caption2.weight(.medium))
                         .opacity(0.6)
                 }
@@ -351,6 +300,8 @@ struct SegmentButtonStyle: ButtonStyle {
             .background(active ? Color.white.opacity(configuration.isPressed ? 0.75 : 1)
                                : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -368,5 +319,7 @@ struct InjectButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(busy ? Theme.borderHi : Color.clear, lineWidth: 1)
             )
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

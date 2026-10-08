@@ -88,3 +88,75 @@ enum DeviceInfo {
         return "v\(short)"
     }
 }
+
+/// pulsing status dot (soft breathing animation)
+struct StatusDot: View {
+    var color: Color
+    @State private var on = false
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 9, height: 9)
+            .scaleEffect(on ? 1.35 : 0.9)
+            .opacity(on ? 0.55 : 1)
+            .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: on)
+            .onAppear { on = true }
+    }
+}
+
+/// in-app toast (custom popup, replaces the system alert)
+struct ToastView: View {
+    let message: String
+    var close: () -> Void = {}
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.white)
+            Text(message)
+                .font(.footnote.weight(.medium))
+                .foregroundColor(.white)
+                .lineLimit(5)
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Theme.cardHi)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Theme.borderHi, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.5), radius: 18, y: 8)
+        .onTapGesture { close() }
+    }
+}
+
+/// card press effect for tappable rows
+struct CardButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+extension View {
+    /// slides a custom toast in from the top whenever the binding is set
+    func toastOverlay(_ text: Binding<String?>) -> some View {
+        self.overlay(alignment: .top) {
+            if let msg = text.wrappedValue {
+                ToastView(message: msg, close: { text.wrappedValue = nil })
+                    .padding(.horizontal, 18)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(10)
+            }
+        }
+        .animation(.spring(response: 0.45, dampingFraction: 0.85), value: text.wrappedValue)
+    }
+}

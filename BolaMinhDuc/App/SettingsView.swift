@@ -11,13 +11,13 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     header
                     rowsCard
-                    footer
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 26)
                 .padding(.bottom, 32)
             }
         }
+        .toastOverlay($model.toastText)
     }
 
     // MARK: header
@@ -49,24 +49,14 @@ struct SettingsView: View {
 
     private var rowsCard: some View {
         VStack(spacing: 0) {
-            row(icon: "bolt.fill", title: "Chạy Lại Kernel",
-                subtitle: "Kích hoạt lại exploit nếu INJECT báo lỗi") {
-                model.rerunKernel()
-            }
-            divider
             row(icon: "trash", title: "Xoá Bộ Nhớ Đệm",
                 subtitle: "File tạm trong app") {
                 model.clearCache()
             }
             divider
             row(icon: "info.circle", title: "Thông Tin Ứng Dụng",
-                subtitle: "Phiên bản • thiết bị • patch") {
-                model.alertText = """
-                BOLAMINHDUC \(DeviceInfo.appVersion)
-                Máy: \(DeviceInfo.machine)
-                Hệ điều hành: \(DeviceInfo.iosVersion)
-                Patch: \(model.bundledPatch?.name ?? "—")
-                """
+                subtitle: "Phiên bản • thiết bị") {
+                model.showToast("BOLAMINHDUC \(DeviceInfo.appVersion)\nThiết bị: \(DeviceInfo.machine)\niOS: \(DeviceInfo.iosVersion)")
             }
         }
         .background(Theme.card)
@@ -117,29 +107,4 @@ struct SettingsView: View {
             .padding(.leading, 66)
     }
 
-    // MARK: footer
-
-    private var footer: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
-            Text(model.statusText)
-                .font(.caption)
-                .foregroundColor(Theme.dim)
-                .lineLimit(2)
-            Spacer()
-        }
-        .padding(.horizontal, 4)
-        .padding(.top, 2)
-    }
-
-    private var statusColor: Color {
-        switch model.phase {
-        case .idle: return Theme.dimmer
-        case .running: return .yellow
-        case .active: return .green
-        case .failed: return .red
-        }
-    }
 }

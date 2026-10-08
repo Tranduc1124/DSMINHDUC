@@ -34,11 +34,6 @@ struct ContentView: View {
                 model.refreshInstalled()
             }
         }
-        .alert(model.alertText ?? "", isPresented: Binding(
-            get: { model.alertText != nil },
-            set: { if !$0 { model.alertText = nil } }
-        )) {
-            Button("OK", role: .cancel) {}
-        }
+        .toastOverlay($model.toastText)
     }
 }

@@ -48,24 +48,14 @@ enum Installer {
 
     static func installedPatchInfo(for game: GameTarget) -> String {
         guard let container = containerPath(for: game.rawValue) else {
-            return "Chưa đọc được thư mục game (cần kích hoạt exploit trước)."
+            return "Chưa kết nối được với game"
         }
         let docs = container + "/Documents"
         let fm = FileManager.default
-        var parts: [String] = []
-        if let attrs = try? fm.attributesOfItem(atPath: docs + "/" + patchFileName),
-           let size = (attrs[.size] as? NSNumber)?.intValue {
-            parts.append("patch: \(size) bytes")
-        } else {
-            parts.append("game sạch (chưa có patch)")
+        if fm.fileExists(atPath: docs + "/" + patchFileName) {
+            return "Đã cài đặt"
         }
-        if fm.fileExists(atPath: docs + "/" + localConfigName) {
-            parts.append("localConfig: có")
-        }
-        if fm.fileExists(atPath: docs + "/" + patchFileName + ".bak") {
-            parts.append(".bak cũ: còn")
-        }
-        return parts.joined(separator: " • ")
+        return "Chưa cài đặt"
     }
 
     /// Writes a tiny probe file into the game's Documents folder to prove the
@@ -106,7 +96,7 @@ enum Installer {
         guard let container = containerPath(for: game.rawValue) else {
             return InstallOutcome(
                 ok: false,
-                message: "Không tìm thấy \(game.title). Kích hoạt exploit trước hoặc kiểm tra game đã cài chưa.")
+                message: "Không tìm thấy \(game.title). Kiểm tra game đã cài chưa nhé.")
         }
         let fm = FileManager.default
         let docs = container + "/Documents"
@@ -132,7 +122,7 @@ enum Installer {
             }
 
             return InstallOutcome(ok: true,
-                                  message: "Đã cài patch vào \(game.title). Mở game để kiểm tra.")
+                                  message: "Đã cài xong cho \(game.title). Mở game để kiểm tra nhé.")
         } catch {
             return InstallOutcome(ok: false,
                                   message: "Lỗi ghi file: \(error.localizedDescription)")
@@ -154,7 +144,7 @@ enum Installer {
         return InstallOutcome(
             ok: true,
             message: had
-                ? "Đã gỡ patch + config (xoá hẳn). Mở lại game để áp dụng."
-                : "Không có patch để xoá.")
+                ? "Đã gỡ xong. Mở lại game để áp dụng nhé."
+                : "Chưa có gì để gỡ.")
     }
 }
