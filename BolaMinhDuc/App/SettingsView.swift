@@ -29,13 +29,13 @@ struct SettingsView: View {
                 .animation(.easeOut(duration: 0.35), value: appear)
                 .onAppear { appear = true }
             }
+            if showLang {
+                languagePanel
+                    .zIndex(5)
+            }
         }
+        .animation(.spring(response: 0.4, dampingFraction: 0.9), value: showLang)
         .toastOverlay($model.toastText)
-        .sheet(isPresented: $showLang) {
-            languageSheet
-                .presentationDetents([.height(240)])
-                .presentationDragIndicator(.visible)
-        }
     }
 
     // MARK: header
@@ -134,22 +134,41 @@ struct SettingsView: View {
             .padding(.leading, 66)
     }
 
-    // MARK: language sheet
+    // MARK: language panel (slides up inside the sheet)
 
-    private var languageSheet: some View {
-        ZStack {
-            Theme.background
+    private var languagePanel: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.45)
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .onTapGesture {
+                    showLang = false
+                }
             VStack(spacing: 10) {
+                Capsule()
+                    .fill(Color.white.opacity(0.25))
+                    .frame(width: 36, height: 5)
+                    .padding(.top, 10)
                 Text(model.tr("Chọn ngôn ngữ", "Choose language"))
                     .font(.headline.weight(.heavy))
                     .foregroundColor(.white)
-                    .padding(.top, 20)
-                    .padding(.bottom, 6)
+                    .padding(.bottom, 4)
                 langOption("vi", "Tiếng Việt")
                 langOption("en", "English")
-                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+            .frame(maxWidth: .infinity)
+            .background(Theme.cardHi)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Theme.borderHi, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
