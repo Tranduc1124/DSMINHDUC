@@ -73,21 +73,14 @@ struct ContentView: View {
                 .font(.caption)
                 .foregroundColor(.gray)
 
-            Toggle("Tự cài patch sau khi kích hoạt", isOn: $model.autoInstall)
-                .font(.caption)
-                .tint(.purple)
-            Toggle("Tự mở game sau khi cài patch", isOn: $model.launchAfterInstall)
-                .font(.caption)
-                .tint(.purple)
-
             Button {
-                model.activate()
+                model.rerunKernel()
             } label: {
-                Label("CHẠY LẠI EXPLOIT", systemImage: "bolt.fill")
+                Label("Chạy lại exploit", systemImage: "arrow.clockwise")
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 6)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bordered)
             .tint(.purple)
             .disabled(model.busy)
         }
@@ -160,11 +153,12 @@ struct ContentView: View {
     private var actionCard: some View {
         VStack(spacing: 10) {
             Button {
-                model.install()
+                model.inject()
             } label: {
-                Label("CÀI PATCH VÀO GAME", systemImage: "square.and.arrow.down.fill")
+                Label("INJECT — CÀI PATCH & VÀO GAME", systemImage: "bolt.fill")
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 14)
+                    .font(.headline)
             }
             .buttonStyle(.borderedProminent)
             .tint(.green)

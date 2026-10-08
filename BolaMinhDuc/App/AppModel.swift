@@ -10,7 +10,7 @@ final class AppModel: ObservableObject {
     }
 
     @Published var phase: Phase = .idle
-    @Published var statusText = "Chưa kích hoạt"
+    @Published var statusText = "Đang chuẩn bị…"
     @Published var game: GameTarget = .freefireTH
     @Published var patches: [PatchFile] = []
     @Published var selectedName: String?
@@ -19,11 +19,11 @@ final class AppModel: ObservableObject {
     @Published var busy = false
     @Published var alertText: String?
     @Published var showImporter = false
-    @Published var autoInstall = true
-    @Published var launchAfterInstall = true
 
     /// auto-bootstrap runs once per app process (kernel access is per-process)
     private var didBootstrap = false
+    /// kernel finished at least once this session
+    private var kernelDone = false
 
     var deviceInfo: String {
         ExploitRunner.versionDescription() + " • " + (ExploitRunner.isSupported() ? "hỗ trợ" : "chưa kiểm chứng")
@@ -35,10 +35,9 @@ final class AppModel: ObservableObject {
 
     init() {
         reloadPatches()
-        refreshInstalled()
     }
 
-    // MARK: - text log
+    // MARK: - log
 
     func append(_ line: String) {
         logText += line + "\n"
@@ -47,20 +46,115 @@ final class AppModel: ObservableObject {
         }
     }
 
-    // MARK: - auto bootstrap (runs on app open)
+    // MARK: - kernel (runs in background, UI does not depend on it)
 
-    /// Called from the UI as soon as the app appears. Runs the kernel exploit
-    /// automatically (no button press), then optionally installs the selected
-    /// patch — exactly once per process.
+    /// Called when the app appears: kick off the kernel exploit in the
+    /// background, once per process. Nothing else happens automatically.
     func bootstrap() {
-        guard !didBootstrap, phase != .running else { return }
+        guard !didBootstrap else { return }
         didBootstrap = true
-        if phase == .active {
-            refreshInstalled()
+        append("auto: mở app → chạy kernel ở nền")
+        runKernel(markBusy: false)
+    }
+
+    /// manual retry button
+    func rerunKernel() {
+        runKernel(markBusy: true)
+    }
+
+    private func runKernel(markBusy: Bool) {
+        guard phase != .running else { return }
+        phase = .running
+        if markBusy {
+            busy = true
+            statusText = "Đang chạy exploit…"
+        } else {
+            statusText = "Kernel đang chạy nền…"
+        }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var ok = ExploitRunner.run { line in
+                DispatchQueue.main.async { self?.append(line) }
+            }
+            if !ok {
+                DispatchQueue.main.async { self?.append("exploit: thử lại lần 2…") }
+                ok = ExploitRunner.run { line in
+                    DispatchQueue.main.async { self?.append(line) }
+                }
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.kernelDone = ok
+                self.phase = ok ? .active : .failed
+                self.statusText = ok ? "Kernel OK — bấm INJECT để cài patch"
+                                    : "Kernel lỗi — bấm INJECT để thử lại"
+                self.busy = false
+                self.refreshInstalled()
+            }
+        }
+    }
+
+    // MARK: - INJECT: install patch + open game
+
+    func inject() {
+        guard !busy else { return }
+        guard let patch = selectedPatch else {
+            alertText = "Chưa có patch nào để inject."
             return
         }
-        append("auto: mở app → tự chạy kernel")
-        activate(autoInstall: true)
+        let game = self.game
+        busy = true
+        if phase != .running { phase = .running }
+        statusText = "Đang inject…"
+
+        let kernelReadyBefore = kernelDone || Installer.hasAccess(to: game)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            var ready = kernelReadyBefore
+            if !ready {
+                self.append_main("inject: kernel chưa xong — chạy lại trước khi cài")
+                let ok = ExploitRunner.run { line in
+                    DispatchQueue.main.async { self.append(line) }
+                }
+                ready = ok || Installer.hasAccess(to: game)
+                DispatchQueue.main.async { self.kernelDone = ready }
+            }
+
+            let result: InstallOutcome
+            if ready {
+                result = Installer.install(patch: patch.url, into: game)
+            } else {
+                result = InstallOutcome(ok: false,
+                                        message: "Kernel chưa sẵn sàng — chờ vài giây rồi bấm INJECT lại.")
+            }
+
+            DispatchQueue.main.async {
+                self.busy = false
+                self.append("inject: " + result.message)
+                self.phase = ready ? .active : .failed
+                self.statusText = result.ok ? "Đã inject — đang mở game"
+                                            : (ready ? "Kernel OK" : "Kernel lỗi")
+                self.refreshInstalled()
+                if result.ok {
+                    self.launchGame()
+                } else {
+                    self.alertText = result.message
+                }
+            }
+        }
+    }
+
+    private func append_main(_ line: String) {
+        DispatchQueue.main.async { [weak self] in self?.append(line) }
+    }
+
+    /// Opens the game with the same private API Delta Proxy uses.
+    func launchGame() {
+        let game = self.game
+        let ok = BolaLaunchApp(game.rawValue)
+        append("launch: \(game.title) -> \(ok ? "đã gửi lệnh mở game" : "KHÔNG mở được")")
+        if !ok {
+            alertText = "Đã cài patch nhưng không mở được game — mở \(game.title) bằng tay giúp mình."
+        }
     }
 
     // MARK: - patches
@@ -74,87 +168,6 @@ final class AppModel: ObservableObject {
 
     func refreshInstalled() {
         installedInfo = Installer.installedPatchInfo(for: game)
-    }
-
-    // MARK: - exploit + install
-
-    func activate(autoInstall auto: Bool = false) {
-        guard !busy else { return }
-        phase = .running
-        statusText = "Đang chạy exploit…"
-        busy = true
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            var ok = ExploitRunner.run { line in
-                DispatchQueue.main.async { self?.append(line) }
-            }
-            // kernel r/w can lose the race — retry once before giving up
-            if !ok {
-                DispatchQueue.main.async { self?.append("exploit: thử lại lần 2…") }
-                ok = ExploitRunner.run { line in
-                    DispatchQueue.main.async { self?.append(line) }
-                }
-            }
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if self.gameIsAccessible() {
-                    self.phase = .active
-                    self.statusText = "Sẵn sàng — truy cập được thư mục game"
-                    self.append("status: đọc được thư mục game OK")
-                } else {
-                    self.phase = ok ? .active : .failed
-                    self.statusText = ok ? "Kernel r/w OK (chưa đọc được thư mục game)"
-                                        : "Kích hoạt thất bại"
-                    self.append("status: chưa đọc được thư mục game")
-                }
-                self.busy = false
-                self.refreshInstalled()
-                if auto, self.autoInstall, self.selectedPatch != nil {
-                    self.install(auto: true)
-                }
-            }
-        }
-    }
-
-    private func gameIsAccessible() -> Bool {
-        defer { refreshInstalled() }
-        return Installer.hasAccess(to: game)
-    }
-
-    func install(auto: Bool = false) {
-        guard !busy else { return }
-        guard let patch = selectedPatch else {
-            if !auto { alertText = "Chưa có patch nào để cài." }
-            return
-        }
-        let game = self.game
-        let launch = launchAfterInstall
-        busy = true
-        append("install: \(patch.name) -> \(game.title)")
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = Installer.install(patch: patch.url, into: game)
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.busy = false
-                self.append("install: " + result.message)
-                if !auto {
-                    self.alertText = result.message
-                }
-                self.refreshInstalled()
-                if result.ok, launch {
-                    self.launchGame()
-                }
-            }
-        }
-    }
-
-    /// Opens the game with the same private API Delta Proxy uses.
-    func launchGame() {
-        let game = self.game
-        let ok = BolaLaunchApp(game.rawValue)
-        append("launch: \(game.title) -> \(ok ? "đã gửi lệnh mở game" : "KHÔNG mở được")")
-        if !ok {
-            alertText = "Đã cài patch nhưng không mở được game tự động — mở \(game.title) bằng tay giúp mình."
-        }
     }
 
     func restore() {
@@ -172,8 +185,6 @@ final class AppModel: ObservableObject {
             }
         }
     }
-
-    // MARK: - patch library
 
     func importPicked(_ url: URL) {
         do {
