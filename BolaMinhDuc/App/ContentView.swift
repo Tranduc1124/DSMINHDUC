@@ -155,10 +155,15 @@ struct ContentView: View {
             Button {
                 model.inject()
             } label: {
-                Label("INJECT — CÀI PATCH & VÀO GAME", systemImage: "bolt.fill")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .font(.headline)
+                VStack(spacing: 3) {
+                    Label("INJECT", systemImage: "bolt.fill")
+                        .font(.title3.weight(.bold))
+                    Text("tự cài patch & mở game")
+                        .font(.caption2)
+                        .opacity(0.85)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
             }
             .buttonStyle(.borderedProminent)
             .tint(.green)

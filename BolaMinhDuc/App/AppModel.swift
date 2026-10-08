@@ -20,10 +20,12 @@ final class AppModel: ObservableObject {
     @Published var alertText: String?
     @Published var showImporter = false
 
-    /// auto-bootstrap runs once per app process (kernel access is per-process)
+    // MARK: kernel single-flight state (main-thread only)
+
     private var didBootstrap = false
-    /// kernel finished at least once this session
+    private var kernelInFlight = false
     private var kernelDone = false
+    private var kernelWaiters: [(Bool) -> Void] = []
 
     var deviceInfo: String {
         ExploitRunner.versionDescription() + " • " + (ExploitRunner.isSupported() ? "hỗ trợ" : "chưa kiểm chứng")
@@ -46,31 +48,46 @@ final class AppModel: ObservableObject {
         }
     }
 
-    // MARK: - kernel (runs in background, UI does not depend on it)
+    // MARK: - kernel (single run; INJECT joins a run already in flight)
 
-    /// Called when the app appears: kick off the kernel exploit in the
-    /// background, once per process. Nothing else happens automatically.
+    /// Runs the kernel exploit at most once at a time. If it is already
+    /// running, `completion` fires when that run finishes — pressing INJECT
+    /// during the kernel therefore piggy-backs instead of racing it.
+    func ensureKernel(_ completion: @escaping (Bool) -> Void) {
+        if kernelDone {
+            completion(true)
+            return
+        }
+        kernelWaiters.append(completion)
+        guard !kernelInFlight else { return }
+        startKernelRun()
+    }
+
     func bootstrap() {
         guard !didBootstrap else { return }
         didBootstrap = true
         append("auto: mở app → chạy kernel ở nền")
-        runKernel(markBusy: false)
+        ensureKernel { _ in }
     }
 
-    /// manual retry button
+    /// manual retry: clears the previous failure and runs again
     func rerunKernel() {
-        runKernel(markBusy: true)
+        guard !kernelInFlight else { return }
+        kernelDone = false
+        phase = .running
+        statusText = "Đang chạy lại exploit…"
+        busy = true
+        ensureKernel { ok in
+            self.busy = false
+            self.phase = ok ? .active : .failed
+            self.statusText = ok ? "Kernel OK — bấm INJECT" : "Kernel lỗi — thử lại"
+        }
     }
 
-    private func runKernel(markBusy: Bool) {
-        guard phase != .running else { return }
+    private func startKernelRun() {
+        kernelInFlight = true
         phase = .running
-        if markBusy {
-            busy = true
-            statusText = "Đang chạy exploit…"
-        } else {
-            statusText = "Kernel đang chạy nền…"
-        }
+        statusText = "Kernel đang chạy nền…"
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             var ok = ExploitRunner.run { line in
                 DispatchQueue.main.async { self?.append(line) }
@@ -83,17 +100,19 @@ final class AppModel: ObservableObject {
             }
             DispatchQueue.main.async {
                 guard let self else { return }
+                self.kernelInFlight = false
                 self.kernelDone = ok
                 self.phase = ok ? .active : .failed
-                self.statusText = ok ? "Kernel OK — bấm INJECT để cài patch"
-                                    : "Kernel lỗi — bấm INJECT để thử lại"
-                self.busy = false
+                self.statusText = ok ? "Kernel OK — bấm INJECT" : "Kernel lỗi — thử lại"
                 self.refreshInstalled()
+                let waiters = self.kernelWaiters
+                self.kernelWaiters = []
+                waiters.forEach { $0(ok) }
             }
         }
     }
 
-    // MARK: - INJECT: install patch + open game
+    // MARK: - INJECT: wait for kernel (or join it), install patch, open game
 
     func inject() {
         guard !busy else { return }
@@ -103,48 +122,39 @@ final class AppModel: ObservableObject {
         }
         let game = self.game
         busy = true
-        if phase != .running { phase = .running }
-        statusText = "Đang inject…"
+        phase = .running
+        statusText = kernelDone ? "Đang inject…" : "Chờ kernel (đang chạy) rồi inject…"
+        if kernelInFlight {
+            append("inject: kernel đang chạy — sẽ cài ngay khi xong")
+        }
 
-        let kernelReadyBefore = kernelDone || Installer.hasAccess(to: game)
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        ensureKernel { [weak self] ok in
             guard let self else { return }
-            var ready = kernelReadyBefore
-            if !ready {
-                self.append_main("inject: kernel chưa xong — chạy lại trước khi cài")
-                let ok = ExploitRunner.run { line in
-                    DispatchQueue.main.async { self.append(line) }
-                }
-                ready = ok || Installer.hasAccess(to: game)
-                DispatchQueue.main.async { self.kernelDone = ready }
-            }
-
-            let result: InstallOutcome
-            if ready {
-                result = Installer.install(patch: patch.url, into: game)
-            } else {
-                result = InstallOutcome(ok: false,
-                                        message: "Kernel chưa sẵn sàng — chờ vài giây rồi bấm INJECT lại.")
-            }
-
-            DispatchQueue.main.async {
+            guard ok || Installer.hasAccess(to: game) else {
                 self.busy = false
-                self.append("inject: " + result.message)
-                self.phase = ready ? .active : .failed
-                self.statusText = result.ok ? "Đã inject — đang mở game"
-                                            : (ready ? "Kernel OK" : "Kernel lỗi")
-                self.refreshInstalled()
-                if result.ok {
-                    self.launchGame()
-                } else {
-                    self.alertText = result.message
+                self.phase = .failed
+                self.statusText = "Kernel lỗi — bấm Chạy lại exploit"
+                self.append("inject: kernel chưa sẵn sàng, huỷ inject")
+                self.alertText = "Kernel chưa sẵn sàng — chờ vài giây rồi bấm INJECT lại."
+                return
+            }
+            self.append("inject: kernel sẵn sàng → cài \(patch.name) vào \(game.title)")
+            DispatchQueue.global(qos: .userInitiated).async {
+                let result = Installer.install(patch: patch.url, into: game)
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.phase = .active
+                    self.statusText = result.ok ? "Đã inject — đang mở game" : "Inject lỗi"
+                    self.append("inject: " + result.message)
+                    self.refreshInstalled()
+                    if result.ok {
+                        self.launchGame()
+                    } else {
+                        self.alertText = result.message
+                    }
                 }
             }
         }
-    }
-
-    private func append_main(_ line: String) {
-        DispatchQueue.main.async { [weak self] in self?.append(line) }
     }
 
     /// Opens the game with the same private API Delta Proxy uses.
