@@ -19,6 +19,7 @@ final class AppModel: ObservableObject {
     @Published var busy = false
     @Published var alertText: String?
     @Published var showImporter = false
+    @Published var latestTag = ""
 
     // MARK: kernel single-flight state (main-thread only)
 
@@ -215,5 +216,49 @@ final class AppModel: ObservableObject {
         PatchLibrary.delete(patch)
         reloadPatches()
         refreshInstalled()
+    }
+
+    // MARK: - settings actions
+
+    /// Fetches the newest release tag from the (public) GitHub repo.
+    func checkUpdate() {
+        guard let url = URL(string: "https://api.github.com/repos/Tranduc1124/DSMINHDUC/releases/latest") else { return }
+        var request = URLRequest(url: url)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 15
+        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if let data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let tag = json["tag_name"] as? String {
+                    self.latestTag = tag
+                    self.append("update: bản mới nhất \(tag)")
+                    self.alertText = "Bản mới nhất trên GitHub: \(tag)"
+                } else {
+                    self.alertText = "Không kiểm tra được cập nhật\(error.map { ": \($0.localizedDescription)" } ?? "")."
+                }
+            }
+        }.resume()
+    }
+
+    /// Removes caches + temp files created by the app (keeps imported patches).
+    func clearCache() {
+        let fm = FileManager.default
+        var freed: UInt64 = 0
+        let targets = [fm.urls(for: .cachesDirectory, in: .userDomainMask).first,
+                       fm.temporaryDirectory].compactMap { $0 }
+        for dir in targets {
+            guard let items = try? fm.contentsOfDirectory(at: dir,
+                                                          includingPropertiesForKeys: [.fileSizeKey]) else { continue }
+            for item in items {
+                let size = (try? item.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap { UInt64($0) } ?? 0
+                if (try? fm.removeItem(at: item)) != nil {
+                    freed += size
+                }
+            }
+        }
+        append("cache: đã xoá \(freed) bytes")
+        alertText = "Đã xoá bộ nhớ đệm (\(freed / 1024) KB)."
     }
 }
