@@ -61,6 +61,22 @@ enum Installer {
         return "Đang có patch: \(size) bytes • \(date)"
     }
 
+    /// Writes a tiny probe file into the game's Documents folder to prove the
+    /// container is actually writable (works even when the sandbox-escape
+    /// probe reports otherwise on iOS 17/18).
+    static func canWrite(into game: GameTarget) -> Bool {
+        guard let container = containerPath(for: game.rawValue) else { return false }
+        let docs = container + "/Documents"
+        let probe = docs + "/.bola_probe_\(getpid())"
+        do {
+            try Data([0x42]).write(to: URL(fileURLWithPath: probe))
+            try? FileManager.default.removeItem(atPath: probe)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     static func install(patch: URL, into game: GameTarget) -> InstallOutcome {
         guard let container = containerPath(for: game.rawValue) else {
             return InstallOutcome(

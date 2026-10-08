@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationView {
@@ -34,6 +35,13 @@ struct ContentView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .onAppear { model.bootstrap() }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                model.bootstrap()
+                model.refreshInstalled()
+            }
+        }
         .sheet(isPresented: $model.showImporter) {
             DocumentPicker { url in model.importPicked(url) }
         }
@@ -64,16 +72,24 @@ struct ContentView: View {
             Text(model.deviceInfo)
                 .font(.caption)
                 .foregroundColor(.gray)
+
+            Toggle("Tự cài patch sau khi kích hoạt", isOn: $model.autoInstall)
+                .font(.caption)
+                .tint(.purple)
+            Toggle("Tự mở game sau khi cài patch", isOn: $model.launchAfterInstall)
+                .font(.caption)
+                .tint(.purple)
+
             Button {
                 model.activate()
             } label: {
-                Label("KÍCH HOẠT (SANDBOX ESCAPE)", systemImage: "bolt.fill")
+                Label("CHẠY LẠI EXPLOIT", systemImage: "bolt.fill")
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
             }
             .buttonStyle(.borderedProminent)
             .tint(.purple)
-            .disabled(model.busy || model.phase == .active)
+            .disabled(model.busy)
         }
         .card()
     }
