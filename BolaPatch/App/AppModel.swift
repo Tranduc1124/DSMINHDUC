@@ -96,15 +96,15 @@ final class AppModel: ObservableObject {
             }
             DispatchQueue.main.async {
                 guard let self else { return }
-                if self.gameIsWritable() {
+                if self.gameIsAccessible() {
                     self.phase = .active
-                    self.statusText = "Sẵn sàng — ghi được vào thư mục game"
-                    self.append("exploit: write-probe vào thư mục game OK")
+                    self.statusText = "Sẵn sàng — truy cập được thư mục game"
+                    self.append("status: đọc được thư mục game OK")
                 } else {
                     self.phase = ok ? .active : .failed
-                    self.statusText = ok ? "Kernel r/w OK (thư mục game chưa ghi được)"
+                    self.statusText = ok ? "Kernel r/w OK (chưa đọc được thư mục game)"
                                         : "Kích hoạt thất bại"
-                    self.append("exploit: write-probe thất bại")
+                    self.append("status: chưa đọc được thư mục game")
                 }
                 self.busy = false
                 self.refreshInstalled()
@@ -115,9 +115,9 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func gameIsWritable() -> Bool {
+    private func gameIsAccessible() -> Bool {
         defer { refreshInstalled() }
-        return Installer.canWrite(into: game)
+        return Installer.hasAccess(to: game)
     }
 
     func install(auto: Bool = false) {

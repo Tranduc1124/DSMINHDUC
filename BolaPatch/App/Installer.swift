@@ -64,17 +64,30 @@ enum Installer {
     /// Writes a tiny probe file into the game's Documents folder to prove the
     /// container is actually writable (works even when the sandbox-escape
     /// probe reports otherwise on iOS 17/18).
-    static func canWrite(into game: GameTarget) -> Bool {
+    /// Read-only access check: can we reach the game's container and list its
+    /// Documents folder? Creates nothing on disk.
+    static func hasAccess(to game: GameTarget) -> Bool {
         guard let container = containerPath(for: game.rawValue) else { return false }
         let docs = container + "/Documents"
-        let probe = docs + "/.bola_probe_\(getpid())"
-        do {
-            try Data([0x42]).write(to: URL(fileURLWithPath: probe))
-            try? FileManager.default.removeItem(atPath: probe)
+        let fm = FileManager.default
+
+        // 1. directory listing (fails while fully sandboxed)
+        guard (try? fm.contentsOfDirectory(atPath: docs)) != nil else { return false }
+
+        // 2. POSIX open for reading on the folder itself
+        let fd = open(docs, O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
+        if fd >= 0 {
+            close(fd)
             return true
-        } catch {
-            return false
         }
+
+        // 3. fall back to reading metadata of the installed patch, if present
+        let patch = docs + "/" + patchFileName
+        if let handle = FileHandle(forReadingAtPath: patch) {
+            handle.closeFile()
+            return true
+        }
+        return false
     }
 
     static func install(patch: URL, into game: GameTarget) -> InstallOutcome {
