@@ -31,15 +31,6 @@ final class AppModel: ObservableObject {
     /// "vi" or "en" -- in-app language
     @Published var language: String = UserDefaults.standard.string(forKey: "bola_lang") ?? "vi"
 
-    // device pairing file state
-    @Published var pairingName: String? = nil
-    @Published var pairingIdentifier: String? = nil
-    @Published var pairingValid = false
-    @Published var pairingBusy = false
-    @Published var pairingPin: String? = nil
-    @Published var pairingNeedPin = false
-    @Published var pairingStage: String? = nil
-
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
     private var cancelRequested = false
 
@@ -449,113 +440,5 @@ final class AppModel: ObservableObject {
         }
         append("cache: đã xoá \(freed) bytes")
         showToast(tr("Đã xoá bộ nhớ đệm (\(freed / 1024) KB).", "Cache cleared (\(freed / 1024) KB)."))
-    }
-
-    // MARK: - device pairing file (dropped into the app's Documents via Files)
-
-    func refreshPairing() {
-        let fm = FileManager.default
-        guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        pairingName = nil
-        pairingIdentifier = nil
-        pairingValid = false
-        guard let files = try? fm.contentsOfDirectory(
-            at: docs,
-            includingPropertiesForKeys: [.contentModificationDateKey]
-        ) else { return }
-        let sorted = files.sorted { a, b in
-            let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date.distantPast
-            let db = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date.distantPast
-            return da > db
-        }
-        for f in sorted {
-            let ext = f.pathExtension.lowercased()
-            if ext == "mobiledevicepairing" || ext == "mobilepair" || ext == "plist" {
-                if let data = try? Data(contentsOf: f),
-                   let plist = (try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)) as? [String: Any] {
-                    let pk = plist["public_key"] as? Data
-                    let sk = plist["private_key"] as? Data
-                    if pk != nil && sk != nil {
-                        pairingName = f.lastPathComponent
-                        pairingValid = true
-                        if let pid = plist["identifier"] as? String {
-                            pairingIdentifier = pid
-                        } else if let udid = plist["UDID"] as? String {
-                            pairingIdentifier = udid
-                        }
-                        return
-                    }
-                }
-            }
-        }
-    }
-
-    func removePairingFile() {
-        let fm = FileManager.default
-        guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first,
-              let name = pairingName else { return }
-        try? fm.removeItem(at: docs.appendingPathComponent(name))
-        refreshPairing()
-    }
-
-    /// Generates the pairing file ON-DEVICE (connects to the device's own
-    /// remotepairing service via LocalDevVPN at 10.7.0.1:49152).
-    func generatePairingOnDevice() {
-        guard !pairingBusy else { return }
-        pairingBusy = true
-        pairingPin = nil
-        pairingNeedPin = false
-        pairingStage = nil
-        append("pairing: bắt đầu tạo trên máy…")
-        if !PairingHost.vpnLoopbackPresent() {
-            append("pairing: chưa thấy VPN (utun/10.7.x)")
-            showToast(tr("Chưa thấy VPN — cần LocalDevVPN bật trước",
-                         "VPN not detected — turn on LocalDevVPN first"))
-        }
-        PairingHost.onNeedPin = { [weak self] in
-            guard let self = self else { return }
-            self.pairingNeedPin = true
-            self.append("pairing: máy đang hiện mã — nhập vào app")
-            self.showToast(self.tr("Nhập mã đang hiện trên màn hình vào app",
-                                   "Type the code shown on the screen into the app"))
-        }
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = PairingHost.generate(
-                progress: { line in
-                    DispatchQueue.main.async {
-                        self?.append("pairing: " + line)
-                        self?.pairingStage = line
-                    }
-                }
-            )
-            PairingHost.onNeedPin = nil
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.pairingBusy = false
-                self.pairingPin = nil
-                self.pairingNeedPin = false
-                self.pairingStage = nil
-                switch result {
-                case .success:
-                    self.append("pairing: tạo xong")
-                    self.showToast(self.tr("Đã tạo file ghép đôi", "Pairing file created"))
-                case .failure(let err):
-                    self.append("pairing: lỗi — " + err.message)
-                    self.showToast(err.message)
-                }
-                self.refreshPairing()
-            }
-        }
-    }
-
-    /// The device is waiting for its on-screen code to be confirmed in-app.
-    func submitPairingPin(_ pin: String) {
-        pairingNeedPin = false
-        PairingHost.submitPin(pin)
-    }
-
-    /// Stops a pending on-device pairing attempt.
-    func cancelPairing() {
-        PairingHost.cancel()
     }
 }

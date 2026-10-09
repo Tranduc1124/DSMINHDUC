@@ -43,15 +43,11 @@ targets:
         UILaunchScreen: {}
         LSApplicationQueriesSchemes:
           - freefire
-        NSLocalNetworkUsageDescription: "Cần cho tính năng ghép đôi thiết bị (pairing file)."
-        NSBonjourServices:
-          - "_remotepairing._tcp"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bolaminhduc.bolapatch
         PRODUCT_NAME: BolaMinhDuc
         SWIFT_OBJC_BRIDGING_HEADER: BolaMinhDuc/BolaMinhDuc-Bridging-Header.h
-        HEADER_SEARCH_PATHS: "$(SRCROOT)/vendor/idevice"
-        OTHER_LDFLAGS: "-lz -lc++ $(SRCROOT)/vendor/idevice/libidevice_ffi.a"
+        OTHER_LDFLAGS: "-lz -lc++"
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic

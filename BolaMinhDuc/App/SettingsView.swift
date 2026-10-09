@@ -6,8 +6,6 @@ struct SettingsView: View {
     var openLanguage: () -> Void
 
     @State private var appear = false
-    @State private var showPairing = false
-    @State private var pinText = ""
 
     var body: some View {
         ZStack {
@@ -31,15 +29,9 @@ struct SettingsView: View {
                 .animation(.easeOut(duration: 0.35), value: appear)
                 .onAppear {
                     appear = true
-                    model.refreshPairing()
                 }
             }
-            if showPairing {
-                pairingPanel
-                    .zIndex(6)
-            }
         }
-        .animation(.spring(response: 0.42, dampingFraction: 0.9), value: showPairing)
         .toastOverlay($model.toastText)
     }
 
@@ -77,15 +69,6 @@ struct SettingsView: View {
                 title: model.tr("Ngôn ngữ", "Language"),
                 subtitle: model.language == "en" ? "English" : "Tiếng Việt") {
                 openLanguage()
-            }
-            divider
-            row(icon: "link.circle.fill",
-                title: model.tr("Ghép đôi thiết bị", "Device pairing"),
-                subtitle: model.pairingValid
-                    ? model.tr("Đã có file ghép đôi", "Pairing file found")
-                    : model.tr("Chưa có file ghép đôi", "No pairing file")) {
-                model.refreshPairing()
-                showPairing = true
             }
             divider
             row(icon: "trash",
@@ -146,175 +129,6 @@ struct SettingsView: View {
             .fill(Theme.border)
             .frame(height: 1)
             .padding(.leading, 66)
-    }
-
-    // MARK: pairing panel
-
-    private var pairingPanel: some View {
-        ZStack(alignment: .bottom) {
-            Color.black.opacity(0.45)
-                .ignoresSafeArea()
-                .transition(.opacity)
-                .onTapGesture {
-                    showPairing = false
-                }
-            VStack(spacing: 12) {
-                Capsule()
-                    .fill(Color.white.opacity(0.25))
-                    .frame(width: 36, height: 5)
-                    .padding(.top, 10)
-                HStack(spacing: 10) {
-                    Image(systemName: model.pairingValid ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(model.pairingValid ? .green : .yellow)
-                    Text(model.tr("Ghép đôi thiết bị", "Device pairing"))
-                        .font(.headline.weight(.heavy))
-                        .foregroundColor(.white)
-                    Spacer()
-                }
-                if let pin = model.pairingPin {
-                    HStack(spacing: 10) {
-                        Image(systemName: "number.square.fill")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(model.tr("Mã ghép đôi", "Pair code"))
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(Theme.dimmer)
-                            Text(pin)
-                                .font(.system(size: 22, weight: .heavy, design: .monospaced))
-                                .foregroundColor(.white)
-                        }
-                        Spacer()
-                        Text(model.tr("nhập mã trên máy", "type it on the device"))
-                            .font(.caption2)
-                            .foregroundColor(Theme.dim)
-                    }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Theme.borderHi, lineWidth: 1)
-                    )
-                }
-                if model.pairingValid {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(model.pairingName ?? "")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                        if let pid = model.pairingIdentifier {
-                            Text(pid)
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(Theme.dim)
-                                .lineLimit(2)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(Theme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-                Text(model.tr("Chép file ghép đôi (.mobiledevicepairing) từ máy tính vào thư mục BOLAMINHDUC trong Files, rồi bấm Làm mới.",
-                              "Copy the pairing file (.mobiledevicepairing) from your computer into the BOLAMINHDUC folder in Files, then tap Refresh."))
-                    .font(.caption2)
-                    .foregroundColor(Theme.dim)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                pillButton(model.pairingBusy
-                           ? model.tr("Đang tạo…", "Generating…")
-                           : model.tr("Tạo trên máy", "Generate on-device"),
-                           primary: false) {
-                    model.generatePairingOnDevice()
-                }
-                .disabled(model.pairingBusy)
-                .opacity(model.pairingBusy ? 0.6 : 1)
-                Text(model.tr("Cần: Wi-Fi bật + LocalDevVPN bật. Nếu lỗi, chép nguyên dòng lỗi gửi mình.",
-                              "Needs: Wi-Fi on + LocalDevVPN on. If it errors, send me the exact error line."))
-                    .font(.caption2)
-                    .foregroundColor(Theme.dim)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 10) {
-                    pillButton(model.tr("Làm mới", "Refresh"), primary: false) {
-                        model.refreshPairing()
-                    }
-                    if model.pairingBusy {
-                        pillButton(model.tr("Hủy", "Cancel"), primary: false) {
-                            model.cancelPairing()
-                        }
-                    }
-                    if model.pairingValid {
-                        pillButton(model.tr("Xoá", "Delete"), primary: false) {
-                            model.removePairingFile()
-                        }
-                    }
-                    pillButton("OK", primary: true) {
-                        showPairing = false
-                    }
-                }
-                if model.pairingBusy, let stage = model.pairingStage {
-                    Text(stage)
-                        .font(.caption2)
-                        .foregroundColor(Theme.dim)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                if model.pairingNeedPin {
-                    HStack(spacing: 10) {
-                        TextField(model.tr("Nhập mã trên màn hình", "Enter code from screen"), text: $pinText)
-                            .keyboardType(.numberPad)
-                            .font(.system(size: 16, weight: .bold, design: .monospaced))
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Theme.card)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(Theme.borderHi, lineWidth: 1)
-                            )
-                        pillButton(model.tr("Gửi", "Send"), primary: true) {
-                            let pin = pinText.trimmingCharacters(in: .whitespaces)
-                            if !pin.isEmpty {
-                                model.submitPairingPin(pin)
-                                pinText = ""
-                            }
-                        }
-                        .frame(width: 84)
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-            .frame(maxWidth: .infinity)
-            .background(Theme.cardHi)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Theme.borderHi, lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
-            .padding(.horizontal, 10)
-            .padding(.bottom, 10)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-        }
-    }
-
-    private func pillButton(_ title: String, primary: Bool,
-                            action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.bold))
-                .foregroundColor(primary ? .black : .white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 11)
-                .background(primary ? Color.white : Theme.card)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(primary ? Color.clear : Theme.borderHi, lineWidth: 1)
-                )
-        }
-        .buttonStyle(.plain)
     }
 
 }
