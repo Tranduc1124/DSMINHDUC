@@ -116,11 +116,7 @@ struct ConfigView: View {
             toggleRow("count", "number", model.tr("Đếm Địch", "Enemy Count"),
                       model.tr("Số địch + bot ở trên màn hình", "Enemies + bots shown on screen"))
         case .aim:
-            toggleRow("aim", "scope", "Aimbot",
-                      model.tr("Khoá địch gần tâm ngắm nhất", "Lock the enemy nearest the crosshair"))
-            boneRow
-            toggleRow("silent", "cursorarrow.rays", model.tr("Aim Silent", "Silent Aim"),
-                      model.tr("Bắn lệch vẫn bay vào bone đã chọn", "Shots bend into the selected bone"))
+            aimCard
         case .misc:
             comingSoonCard
         }
@@ -269,7 +265,72 @@ struct ConfigView: View {
         }
     }
 
-    private var boneRow: some View {
+    private var aimCard: some View {
+        VStack(spacing: 0) {
+            toggleRowInline("aim", "scope", "Aimbot",
+                            model.tr("Khoá địch gần tâm ngắm nhất", "Lock the enemy nearest the crosshair"))
+            Rectangle()
+                .fill(Theme.border)
+                .frame(height: 1)
+                .padding(.leading, 52)
+            toggleRowInline("silent", "cursorarrow.rays", model.tr("Aim Silent", "Silent Aim"),
+                            model.tr("Bắn lệch vẫn bay vào bone đã chọn", "Shots bend into the selected bone"))
+            if model.flag("aim") || model.flag("silent") {
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Theme.border)
+                        .frame(height: 1)
+                        .padding(.leading, 52)
+                    boneSection
+                    Rectangle()
+                        .fill(Theme.border)
+                        .frame(height: 1)
+                        .padding(.leading, 52)
+                    toggleRowInline("skipknock", "figure.fall", model.tr("Bỏ qua gục", "Skip knocked"),
+                                    model.tr("Không khoá địch đã bị hạ gục", "Don't lock knocked-down enemies"))
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Theme.border, lineWidth: 1)
+        )
+        .animation(.spring(response: 0.38, dampingFraction: 0.86), value: model.flag("aim"))
+        .animation(.spring(response: 0.38, dampingFraction: 0.86), value: model.flag("silent"))
+    }
+
+    private func toggleRowInline(_ key: String, _ icon: String,
+                                 _ title: String, _ subtitle: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundColor(Theme.dimmer)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Toggle("", isOn: Binding(
+                get: { model.flag(key) },
+                set: { model.setFlag(key, $0) }
+            ))
+            .labelsHidden()
+            .tint(.white)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+
+    private var boneSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 Image(systemName: "figure.stand")
@@ -288,13 +349,7 @@ struct ConfigView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Theme.border, lineWidth: 1)
-        )
+        .padding(.vertical, 11)
     }
 
     private func bonePill(_ value: Int, _ title: String) -> some View {

@@ -23,7 +23,7 @@ final class AppModel: ObservableObject {
     private var toastToken = 0
 
     /// feature toggles shown in the app (pushed to the game live + persisted)
-    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent"]
+    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
@@ -58,7 +58,7 @@ final class AppModel: ObservableObject {
             if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
                 d[k] = v
             } else {
-                d[k] = (k == "aim" || k == "silent") ? false : true
+                d[k] = (k == "aim" || k == "silent" || k == "skipknock") ? false : true
             }
         }
         cfgFlags = d
@@ -79,6 +79,15 @@ final class AppModel: ObservableObject {
     func setFlag(_ key: String, _ value: Bool) {
         cfgFlags[key] = value
         UserDefaults.standard.set(value, forKey: "bola_cfg_" + key)
+        // aimbot vs silent aim: only one can be on
+        if value && key == "aim" {
+            cfgFlags["silent"] = false
+            UserDefaults.standard.set(false, forKey: "bola_cfg_silent")
+        }
+        if value && key == "silent" {
+            cfgFlags["aim"] = false
+            UserDefaults.standard.set(false, forKey: "bola_cfg_aim")
+        }
         writeConfig()
     }
 
@@ -182,6 +191,7 @@ final class AppModel: ObservableObject {
         if flag("aim") { extra |= 1 }
         if flag("bone") { extra |= 2 }
         if flag("silent") { extra |= 4 }
+        if flag("skipknock") { extra |= 8 }
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
         let (c9, c10) = pack565("box")
