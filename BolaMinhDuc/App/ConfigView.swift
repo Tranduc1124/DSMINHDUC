@@ -118,7 +118,7 @@ struct ConfigView: View {
         case .aim:
             aimCard
         case .misc:
-            miscCard
+            comingSoonCard
         }
     }
 
@@ -403,21 +403,6 @@ struct ConfigView: View {
                 )
         }
         .buttonStyle(.plain)
-    }
-
-    private var miscCard: some View {
-        VStack(spacing: 0) {
-            toggleRowInline("straight", "scope", model.tr("Đạn thẳng", "Straight bullets"),
-                            model.tr("Thử nghiệm: khử trọng lực bay của đạn",
-                                     "Experimental: zero flight gravity"))
-        }
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Theme.border, lineWidth: 1)
-        )
-        .animation(.spring(response: 0.38, dampingFraction: 0.86), value: model.flag("straight"))
     }
 
     private var comingSoonCard: some View {

@@ -23,7 +23,7 @@ final class AppModel: ObservableObject {
     private var toastToken = 0
 
     /// feature toggles shown in the app (pushed to the game live + persisted)
-    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock", "showfov", "straight"]
+    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock", "showfov"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
@@ -59,7 +59,7 @@ final class AppModel: ObservableObject {
             if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
                 d[k] = v
             } else {
-                d[k] = (k == "aim" || k == "silent" || k == "skipknock" || k == "straight") ? false : true
+                d[k] = (k == "aim" || k == "silent" || k == "skipknock") ? false : true
             }
         }
         cfgFlags = d
@@ -208,7 +208,6 @@ final class AppModel: ObservableObject {
         if flag("silent") { extra |= 4 }
         if flag("skipknock") { extra |= 8 }
         if flag("showfov") { extra |= 16 }
-        if flag("straight") { extra |= 32 }
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
         payload[15] = UInt8(max(5, min(100, silentFov)))
