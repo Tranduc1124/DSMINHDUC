@@ -1,54 +1,91 @@
 import Foundation
 import Darwin
 
-/// On-device pairing: connects to the device's own `_remotepairing` service
-/// through the LocalDevVPN loopback (10.7.0.1:49152), runs pair-setup with a
-/// freshly generated pairing file and saves it. No computer required.
+/// On-device pairing: finds the device's own `_remotepairing._tcp` service via
+/// Bonjour (this also triggers the Local Network permission prompt), then runs
+/// `tunnel_create_rppairing` against the discovered address with a freshly
+/// generated pairing file. Falls back to 10.7.0.1:49152 (LocalDevVPN) if the
+/// Bonjour browse finds nothing.
 enum PairingHost {
 
-    // MARK: pin relay (the device shows a code; the user types it in-app)
+    // MARK: Bonjour discovery of the device's own remotepairing service
 
-    final class PinEntryBox {
-        let sem = DispatchSemaphore(value: 0)
-        var pin: String?
-    }
+    final class RPBrowser: NSObject, NSNetServiceBrowserDelegate, NSNetServiceDelegate {
+        private let sem = DispatchSemaphore(value: 0)
+        private var browser: NSNetServiceBrowser?
+        private var resolved: [(String, Int)] = []
+        private var pending: Set<NSNetService> = []
 
-    private static let pinEntry = PinEntryBox()
-    private static let pinBuf: UnsafeMutablePointer<CChar> = {
-        let p = UnsafeMutablePointer<CChar>.allocate(capacity: 16)
-        p.initialize(repeating: 0, count: 16)
-        return p
-    }()
-
-    static var onNeedPin: (() -> Void)?
-
-    private static let pinEntryCallback: @convention(c) (UnsafeMutableRawPointer?) -> UnsafePointer<CChar>? = { _ in
-        if let onNeed = PairingHost.onNeedPin {
-            DispatchQueue.main.async { onNeed() }
+        func discover(timeout: TimeInterval) -> (String, Int)? {
+            let b = NSNetServiceBrowser()
+            b.delegate = self
+            b.searchForServices(ofType: "_remotepairing._tcp.", inDomain: "local.")
+            browser = b
+            let deadline = Date().addingTimeInterval(timeout)
+            while Date() < deadline {
+                if sem.wait(timeout: .now() + 0.5) == .success {
+                    if let best = best() {
+                        b.stop()
+                        return best
+                    }
+                }
+            }
+            b.stop()
+            return best()
         }
-        pinEntry.sem.wait()
-        let code = pinEntry.pin ?? ""
-        pinEntry.pin = nil
-        let utf8 = Array(code.utf8.prefix(15))
-        for i in 0..<16 {
-            pinBuf[i] = 0
-        }
-        for (i, b) in utf8.enumerated() {
-            pinBuf[i] = CChar(bitPattern: b)
-        }
-        return UnsafePointer(pinBuf)
-    }
 
-    /// Called from the UI with the code shown on the device screen.
-    static func submitPin(_ pin: String) {
-        pinEntry.pin = pin
-        pinEntry.sem.signal()
-    }
+        private func best() -> (String, Int)? {
+            if let v = resolved.first(where: { $0.0.hasPrefix("10.7.") }) {
+                return v
+            }
+            return resolved.first
+        }
 
-    /// Fallback escape: unblocks a waiting pin prompt (empty code → pairing fails).
-    static func cancel() {
-        pinEntry.pin = ""
-        pinEntry.sem.signal()
+        func netServiceBrowser(_ browser: NSNetServiceBrowser, didFind service: NSNetService, moreComing: Bool) {
+            if pending.contains(service) { return }
+            pending.insert(service)
+            service.delegate = self
+            service.resolve(withTimeout: 5)
+        }
+
+        func netServiceDidResolveAddress(_ sender: NSNetService) {
+            let port = sender.port
+            guard port > 0, port < 65536 else { return }
+            if let addresses = sender.addresses {
+                for data in addresses {
+                    if let ip = RPBrowser.ipString(from: data) {
+                        resolved.append((ip, port))
+                        sem.signal()
+                        return
+                    }
+                }
+            }
+        }
+
+        func netService(_ sender: NSNetService, didNotResolve errorDict: [String: NSNumber]) {
+            pending.remove(sender)
+        }
+
+        static func ipString(from data: Data) -> String? {
+            var storage = sockaddr_storage()
+            data.withUnsafeBytes { raw in
+                guard let base = raw.baseAddress, raw.count <= MemoryLayout<sockaddr_storage>.size else { return }
+                memcpy(&storage, base, raw.count)
+            }
+            var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            let len = storage.ss_family == sa_family_t(AF_INET6)
+                ? socklen_t(MemoryLayout<sockaddr_in6>.size)
+                : socklen_t(MemoryLayout<sockaddr_in>.size)
+            let res = withUnsafePointer(to: &storage) { p in
+                p.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
+                    getnameinfo(sa, len, &host, socklen_t(NI_MAXHOST), nil, 0, NI_NUMERICHOST)
+                }
+            }
+            guard res == 0 else { return nil }
+            let ip = String(cString: host)
+            if ip.hasPrefix("fe80:") { return nil }
+            return ip
+        }
     }
 
     /// Heuristic: LocalDevVPN uses 10.7.0.1; accept any 10.7.x address or any
@@ -91,15 +128,28 @@ enum PairingHost {
         }
         defer { rp_pairing_file_free(pairFile) }
 
-        progress("kết nối 10.7.0.1:49152 (cần Wi-Fi + LocalDevVPN)…")
+        progress("đang tìm dịch vụ ghép đôi (Bonjour)…")
+        var targetIP = "10.7.0.1"
+        var targetPort: UInt16 = 49152
+        if let found = RPBrowser().discover(timeout: 8) {
+            targetIP = found.0
+            if found.1 > 0 && found.1 < 65536 {
+                targetPort = UInt16(found.1)
+            }
+            progress("thấy dịch vụ tại \(targetIP):\(targetPort)")
+        } else {
+            progress("không thấy Bonjour — thử mặc định 10.7.0.1:49152")
+        }
 
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = UInt16(49152).bigEndian
-        let parseResult = "10.7.0.1".withCString { inet_pton(AF_INET, $0, &addr.sin_addr) }
+        addr.sin_port = targetPort.bigEndian
+        let parseResult = targetIP.withCString { inet_pton(AF_INET, $0, &addr.sin_addr) }
         guard parseResult == 1 else {
-            return .failure(PairError(message: "địa chỉ VPN không hợp lệ"))
+            return .failure(PairError(message: "địa chỉ không hợp lệ (\(targetIP))"))
         }
+
+        progress("kết nối \(targetIP):\(targetPort)…")
 
         var adapter: OpaquePointer? = nil
         var handshake: OpaquePointer? = nil
@@ -130,8 +180,9 @@ enum PairingHost {
 
         if let err = err {
             let code = err.pointee.code
+            let sub = err.pointee.sub_code
             let text = errorText(err)
-            return .failure(PairError(message: "lỗi ghép đôi (code \(code)): \(text)"))
+            return .failure(PairError(message: "lỗi ghép đôi (code \(code)/\(sub)): \(text)"))
         }
 
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -146,7 +197,7 @@ enum PairingHost {
 
     private static func errorText(_ err: UnsafeMutablePointer<IdeviceFfiError>) -> String {
         let e = err.pointee
-        var text = "lỗi \(e.code)"
+        var text = "không có mô tả"
         if let msg = e.message {
             text = String(cString: msg)
         }
