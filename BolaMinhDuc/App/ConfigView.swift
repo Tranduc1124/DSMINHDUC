@@ -438,8 +438,8 @@ struct ConfigView: View {
     private var miscCard: some View {
         VStack(spacing: 0) {
             toggleRowInline("straight", "scope", model.tr("Đạn thẳng (thử nghiệm)", "Straight bullets (experimental)"),
-                            model.tr("Bước A: kiểm tra lấy được súng — xem ký hiệu W trên màn hình",
-                                     "Step A probe: check the W marker on screen"))
+                            model.tr("Đang kiểm tra từng bước — bản sau",
+                                     "Step-by-step testing — next build"))
         }
         .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
