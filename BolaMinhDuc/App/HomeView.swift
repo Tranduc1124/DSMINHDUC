@@ -21,6 +21,7 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     hero
+                    antibanCard
                     gameList
                     hint
                 }
@@ -142,6 +143,52 @@ struct HomeView: View {
                 .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: anti-ban
+
+    private var antibanCard: some View {
+        HStack(spacing: 13) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(Theme.cardHi)
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .stroke(Theme.border, lineWidth: 1)
+                    )
+                Image(systemName: "shield.lefthalf.filled")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(model.tr("Anti-ban", "Anti-ban"))
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.white)
+                Text(model.tr("Tự dọn dấu vết liên tục khi chạy ngầm",
+                              "Keeps wiping traces in the background"))
+                    .font(.caption2)
+                    .foregroundColor(Theme.dim)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Toggle("", isOn: Binding(
+                get: { model.antiban },
+                set: { model.setAntiban($0) }
+            ))
+            .labelsHidden()
+            .tint(.white)
+        }
+        .padding(14)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Theme.border, lineWidth: 1)
+        )
+        .opacity(appear ? 1 : 0)
+        .offset(y: appear ? 0 : 12)
+        .animation(.easeOut(duration: 0.4).delay(0.06), value: appear)
     }
 
     // MARK: games
