@@ -496,6 +496,30 @@ extension AppModel {
         UserDefaults.standard.set(value, forKey: "bola_antiban")
         if value {
             startAntibanLoop()
+            return
+        }
+        // Turning anti-ban OFF while the patch is installed = instant
+        // uninject: stop the cleanup loop and pull the patch out of every
+        // game container it is in.
+        antibanTimer?.invalidate()
+        antibanTimer = nil
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            var removed: [String] = []
+            for g in GameTarget.allCases where Installer.patchExists(for: g) {
+                let rb = Installer.restore(game: g)
+                removed.append(g.title)
+                DispatchQueue.main.async {
+                    self.append("antiban: tắt anti → tự gỡ patch \(g.title) (" + rb.message + ")")
+                }
+            }
+            DispatchQueue.main.async {
+                if !removed.isEmpty {
+                    self.showToast(self.tr("Đã tắt Anti-ban → tự gỡ patch (\(removed.joined(separator: ", ")))",
+                                           "Anti-ban off → patch removed (\(removed.joined(separator: ", ")))"))
+                }
+                self.refreshInstalled()
+            }
         }
     }
 
