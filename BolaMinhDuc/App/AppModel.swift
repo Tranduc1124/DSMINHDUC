@@ -23,11 +23,12 @@ final class AppModel: ObservableObject {
     private var toastToken = 0
 
     /// feature toggles shown in the app (pushed to the game live + persisted)
-    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock", "showfov"]
+    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock", "showfov", "fastrun", "dropcomp"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
     @Published var silentFov: Int = 30
+    @Published var speedRun: Double = 12.0
 
     /// "vi" or "en" -- in-app language
     @Published var language: String = UserDefaults.standard.string(forKey: "bola_lang") ?? "vi"
@@ -59,7 +60,7 @@ final class AppModel: ObservableObject {
             if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
                 d[k] = v
             } else {
-                d[k] = (k == "aim" || k == "silent" || k == "skipknock") ? false : true
+                d[k] = (k == "aim" || k == "silent" || k == "skipknock" || k == "fastrun" || k == "dropcomp") ? false : true
             }
         }
         cfgFlags = d
@@ -67,6 +68,10 @@ final class AppModel: ObservableObject {
         let storedFov = UserDefaults.standard.object(forKey: "bola_fov") as? Int
         if let f = storedFov, f >= 5 && f <= 100 {
             silentFov = f
+        }
+        let storedSpeed = UserDefaults.standard.object(forKey: "bola_speed") as? Double
+        if let sp = storedSpeed, sp >= 6 && sp <= 25 {
+            speedRun = sp
         }
     }
 
@@ -108,6 +113,15 @@ final class AppModel: ObservableObject {
         if v > 100 { v = 100 }
         silentFov = v
         UserDefaults.standard.set(v, forKey: "bola_fov")
+        writeConfig()
+    }
+
+    func setSpeedRun(_ value: Double) {
+        var v = value
+        if v < 6 { v = 6 }
+        if v > 25 { v = 25 }
+        speedRun = v
+        UserDefaults.standard.set(v, forKey: "bola_speed")
         writeConfig()
     }
 
@@ -207,8 +221,12 @@ final class AppModel: ObservableObject {
         if flag("silent") { extra |= 4 }
         if flag("skipknock") { extra |= 8 }
         if flag("showfov") { extra |= 16 }
+        if flag("dropcomp") { extra |= 32 }
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
+        if flag("fastrun") {
+            payload[6] = UInt8(max(10, min(250, Int(speedRun * 10))))
+        }
         payload[15] = UInt8(max(5, min(100, silentFov)))
         let (c9, c10) = pack565("box")
         let (c11, c12) = pack565("line")
