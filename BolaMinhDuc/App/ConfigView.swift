@@ -407,37 +407,9 @@ struct ConfigView: View {
 
     private var miscCard: some View {
         VStack(spacing: 0) {
-            toggleRowInline("fastrun", "figure.run", model.tr("Chạy nhanh", "Fast run"),
-                            model.tr("Tăng tốc chạy — rủi ro ban, cân nhắc",
-                                     "Higher move speed — ban risk, use with care"))
-            if model.flag("fastrun") {
-                Rectangle()
-                    .fill(Theme.border)
-                    .frame(height: 1)
-                    .padding(.leading, 52)
-                VStack(spacing: 8) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "speedometer")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: 26)
-                        Text(model.tr("Tốc độ", "Speed"))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(.white)
-                        Spacer()
-                        Text(String(format: "%.1f", model.speedRun))
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
-                            .foregroundColor(Theme.dim)
-                    }
-                    Slider(value: Binding(
-                        get: { model.speedRun },
-                        set: { model.setSpeedRun($0) }
-                    ), in: 6...25, step: 0.5)
-                    .tint(.white)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-            }
+            toggleRowInline("straight", "scope", model.tr("Đạn thẳng", "Straight bullets"),
+                            model.tr("Thử nghiệm: khử trọng lực bay của đạn",
+                                     "Experimental: zero flight gravity"))
         }
         .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -445,7 +417,7 @@ struct ConfigView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Theme.border, lineWidth: 1)
         )
-        .animation(.spring(response: 0.38, dampingFraction: 0.86), value: model.flag("fastrun"))
+        .animation(.spring(response: 0.38, dampingFraction: 0.86), value: model.flag("straight"))
     }
 
     private var comingSoonCard: some View {
