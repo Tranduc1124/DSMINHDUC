@@ -230,8 +230,8 @@ struct SettingsView: View {
                 }
                 .disabled(model.pairingBusy)
                 .opacity(model.pairingBusy ? 0.6 : 1)
-                Text(model.tr("Cần: LocalDevVPN bật + quyền “Mạng cục bộ” (Cài đặt > Quyền riêng tư > Mạng cục bộ > BOLAMINHDUC).",
-                              "Needs: LocalDevVPN on + Local Network permission (Settings > Privacy > Local Network > BOLAMINHDUC)."))
+                Text(model.tr("Cần: Wi-Fi bật + LocalDevVPN bật. Nếu lỗi, chép nguyên dòng lỗi gửi mình.",
+                              "Needs: Wi-Fi on + LocalDevVPN on. If it errors, send me the exact error line."))
                     .font(.caption2)
                     .foregroundColor(Theme.dim)
                     .frame(maxWidth: .infinity, alignment: .leading)

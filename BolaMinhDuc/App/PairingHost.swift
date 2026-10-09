@@ -91,13 +91,15 @@ enum PairingHost {
         }
         defer { rp_pairing_file_free(pairFile) }
 
-        progress("kết nối 10.7.0.1:49152 (cần LocalDevVPN)…")
+        progress("kết nối 10.7.0.1:49152 (cần Wi-Fi + LocalDevVPN)…")
 
         var addr = sockaddr_in()
-        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
         addr.sin_family = sa_family_t(AF_INET)
         addr.sin_port = UInt16(49152).bigEndian
-        addr.sin_addr.s_addr = inet_addr("10.7.0.1")
+        let parseResult = "10.7.0.1".withCString { inet_pton(AF_INET, $0, &addr.sin_addr) }
+        guard parseResult == 1 else {
+            return .failure(PairError(message: "địa chỉ VPN không hợp lệ"))
+        }
 
         var adapter: OpaquePointer? = nil
         var handshake: OpaquePointer? = nil
@@ -106,10 +108,10 @@ enum PairingHost {
             p.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
                 tunnel_create_rppairing(
                     sa,
-                    socklen_t(MemoryLayout<sockaddr_in>.size),
+                    socklen_t(MemoryLayout<sockaddr_in>.stride),
                     "BolaMinhDuc",
                     pairFile,
-                    pinEntryCallback,
+                    nil,
                     nil,
                     &adapter,
                     &handshake
@@ -127,12 +129,9 @@ enum PairingHost {
         }
 
         if let err = err {
+            let code = err.pointee.code
             let text = errorText(err)
-            let lower = text.lowercased()
-            if lower.contains("connect") || lower.contains("refused") || lower.contains("timed out") || lower.contains("unreachable") {
-                return .failure(PairError(message: "không kết nối được 10.7.0.1:49152 — kiểm tra LocalDevVPN đã bật"))
-            }
-            return .failure(PairError(message: text))
+            return .failure(PairError(message: "lỗi ghép đôi (code \(code)): \(text)"))
         }
 
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
