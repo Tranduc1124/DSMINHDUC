@@ -117,6 +117,34 @@ struct ConfigView: View {
                       model.tr("Số địch + bot ở trên màn hình", "Enemies + bots shown on screen"))
             toggleRow("team", "person.3.fill", model.tr("ESP Đội", "Team ESP"),
                       model.tr("Hiện đồng đội (màu xanh)", "Show teammates (green)"))
+            VStack(spacing: 8) {
+                HStack(spacing: 12) {
+                    Image(systemName: "lineweight")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 26)
+                    Text(model.tr("Độ dày ESP", "ESP thickness"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Text("\(model.espThick)%")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundColor(Theme.dim)
+                }
+                Slider(value: Binding(
+                    get: { Double(model.espThick) },
+                    set: { model.setEspThick(Int($0)) }
+                ), in: 50...200, step: 10)
+                .tint(.white)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 1)
+            )
         case .aim:
             aimCard
         case .misc:

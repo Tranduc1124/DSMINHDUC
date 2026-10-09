@@ -28,6 +28,7 @@ final class AppModel: ObservableObject {
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
     @Published var silentFov: Int = 30
+    @Published var espThick: Int = 100
 
     /// "vi" or "en" -- in-app language
     @Published var language: String = UserDefaults.standard.string(forKey: "bola_lang") ?? "vi"
@@ -79,6 +80,10 @@ final class AppModel: ObservableObject {
         if let f = storedFov, f >= 5 && f <= 100 {
             silentFov = f
         }
+        let storedThick = UserDefaults.standard.object(forKey: "bola_thick") as? Int
+        if let t = storedThick, t >= 50 && t <= 200 {
+            espThick = t
+        }
     }
 
     /// The one patch bundled in the app — custom patches are not accepted.
@@ -119,6 +124,15 @@ final class AppModel: ObservableObject {
         if v > 100 { v = 100 }
         silentFov = v
         UserDefaults.standard.set(v, forKey: "bola_fov")
+        writeConfig()
+    }
+
+    func setEspThick(_ value: Int) {
+        var v = value
+        if v < 50 { v = 50 }
+        if v > 200 { v = 200 }
+        espThick = v
+        UserDefaults.standard.set(v, forKey: "bola_thick")
         writeConfig()
     }
 
@@ -222,6 +236,7 @@ final class AppModel: ObservableObject {
         if flag("team") { extra |= 32 }
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
+        payload[6] = UInt8(max(50, min(200, espThick)))
         payload[15] = UInt8(max(5, min(100, silentFov)))
         let (c9, c10) = pack565("box")
         let (c11, c12) = pack565("line")
