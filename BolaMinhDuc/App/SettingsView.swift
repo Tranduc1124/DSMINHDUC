@@ -229,8 +229,8 @@ struct SettingsView: View {
                 }
                 .disabled(model.pairingBusy)
                 .opacity(model.pairingBusy ? 0.6 : 1)
-                Text(model.tr("Bật LocalDevVPN trước, rồi bấm “Tạo trên máy”. Treo lâu = chưa kết nối — bấm Hủy rồi thử lại.",
-                              "Turn on LocalDevVPN first, then tap “Generate on-device”. If it hangs, tap Cancel and retry."))
+                Text(model.tr("Cần: LocalDevVPN bật + quyền “Mạng cục bộ” (Cài đặt > Quyền riêng tư > Mạng cục bộ > BOLAMINHDUC).",
+                              "Needs: LocalDevVPN on + Local Network permission (Settings > Privacy > Local Network > BOLAMINHDUC)."))
                     .font(.caption2)
                     .foregroundColor(Theme.dim)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -251,6 +251,12 @@ struct SettingsView: View {
                     pillButton("OK", primary: true) {
                         showPairing = false
                     }
+                }
+                if model.pairingBusy, let stage = model.pairingStage {
+                    Text(stage)
+                        .font(.caption2)
+                        .foregroundColor(Theme.dim)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .padding(.horizontal, 16)

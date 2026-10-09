@@ -25,7 +25,8 @@ enum PairingHost {
         }
     }
 
-    /// True when a LocalDevVPN-style loopback address (10.7.0.1) is up.
+    /// Heuristic: LocalDevVPN uses 10.7.0.1; accept any 10.7.x address or any
+    /// active utun interface with an IPv4 address as "a tunnel is up".
     static func vpnLoopbackPresent() -> Bool {
         var addrs: UnsafeMutablePointer<ifaddrs>? = nil
         guard getifaddrs(&addrs) == 0, let first = addrs else { return false }
@@ -33,6 +34,7 @@ enum PairingHost {
         var ptr: UnsafeMutablePointer<ifaddrs>? = first
         while let cur = ptr {
             let flags = Int32(cur.pointee.ifa_flags)
+            let name = String(cString: cur.pointee.ifa_name)
             if (flags & IFF_UP) != 0, let sa = cur.pointee.ifa_addr, sa.pointee.sa_family == UInt8(AF_INET) {
                 var sin = sockaddr_in()
                 memcpy(&sin, sa, MemoryLayout<sockaddr_in>.size)
@@ -40,7 +42,10 @@ enum PairingHost {
                 var addr = sin.sin_addr
                 inet_ntop(AF_INET, &addr, &buf, socklen_t(INET_ADDRSTRLEN))
                 let ip = String(cString: buf)
-                if ip == "10.7.0.1" {
+                if ip.hasPrefix("10.7.") {
+                    return true
+                }
+                if name.hasPrefix("utun") && !ip.hasPrefix("127.") && !ip.hasPrefix("169.254.") {
                     return true
                 }
             }
@@ -108,7 +113,7 @@ enum PairingHost {
         if let err = err {
             let text = errorText(err)
             if state.timedOut {
-                return .failure(PairError(message: "không thấy máy kết nối — hãy bật LocalDevVPN rồi thử lại"))
+                return .failure(PairError(message: "không thấy máy kết nối — kiểm tra LocalDevVPN + quyền Mạng cục bộ rồi thử lại"))
             }
             if text.lowercased().contains("cancel") {
                 return .failure(PairError(message: "đã huỷ ghép đôi"))

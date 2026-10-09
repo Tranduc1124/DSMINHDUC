@@ -37,6 +37,7 @@ final class AppModel: ObservableObject {
     @Published var pairingValid = false
     @Published var pairingBusy = false
     @Published var pairingPin: String? = nil
+    @Published var pairingStage: String? = nil
 
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
     private var cancelRequested = false
@@ -501,16 +502,20 @@ final class AppModel: ObservableObject {
         guard !pairingBusy else { return }
         pairingBusy = true
         pairingPin = nil
+        pairingStage = nil
         append("pairing: bắt đầu tạo trên máy…")
         if !PairingHost.vpnLoopbackPresent() {
-            append("pairing: chưa thấy địa chỉ VPN 10.7.0.1")
-            showToast(tr("Chưa thấy LocalDevVPN — bật VPN rồi thử lại nếu treo",
-                         "LocalDevVPN not detected — enable the VPN if it hangs"))
+            append("pairing: chưa thấy VPN (utun/10.7.x)")
+            showToast(tr("Chưa thấy VPN — cần LocalDevVPN bật (và quyền Mạng cục bộ)",
+                         "VPN not detected — LocalDevVPN must be on (plus Local Network permission)"))
         }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = PairingHost.generate(
                 progress: { line in
-                    DispatchQueue.main.async { self?.append("pairing: " + line) }
+                    DispatchQueue.main.async {
+                        self?.append("pairing: " + line)
+                        self?.pairingStage = line
+                    }
                 },
                 onPin: { pin in
                     DispatchQueue.main.async {
@@ -525,6 +530,7 @@ final class AppModel: ObservableObject {
                 guard let self else { return }
                 self.pairingBusy = false
                 self.pairingPin = nil
+                self.pairingStage = nil
                 switch result {
                 case .success:
                     self.append("pairing: tạo xong")
