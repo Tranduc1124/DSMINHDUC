@@ -3,46 +3,33 @@ import SwiftUI
 /// CÀI ĐẶT — Delta-style sheet: big header, rounded rows card, language picker.
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
-    @Binding var detent: PresentationDetent
+    var openLanguage: () -> Void
 
     @State private var appear = false
-    @State private var showLang = false
 
     var body: some View {
         ZStack {
-            Group {
-                Theme.background
-                Circle()
-                    .fill(Color.white.opacity(0.045))
-                    .frame(width: 320, height: 320)
-                    .blur(radius: 80)
-                    .offset(y: -190)
-                    .allowsHitTesting(false)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        header
-                        rowsCard
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.top, 22)
-                    .padding(.bottom, 32)
-                    .opacity(appear ? 1 : 0)
-                    .offset(y: appear ? 0 : 14)
-                    .animation(.easeOut(duration: 0.35), value: appear)
-                    .onAppear { appear = true }
+            Theme.background
+            Circle()
+                .fill(Color.white.opacity(0.045))
+                .frame(width: 320, height: 320)
+                .blur(radius: 80)
+                .offset(y: -190)
+                .allowsHitTesting(false)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    header
+                    rowsCard
                 }
-            }
-            .offset(y: showLang ? 420 : 0)
-            .opacity(showLang ? 0 : 1)
-            .animation(.spring(response: 0.4, dampingFraction: 0.9), value: showLang)
-
-            if showLang {
-                languageContent
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(5)
+                .padding(.horizontal, 18)
+                .padding(.top, 22)
+                .padding(.bottom, 32)
+                .opacity(appear ? 1 : 0)
+                .offset(y: appear ? 0 : 14)
+                .animation(.easeOut(duration: 0.35), value: appear)
+                .onAppear { appear = true }
             }
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.9), value: showLang)
         .toastOverlay($model.toastText)
     }
 
@@ -79,8 +66,7 @@ struct SettingsView: View {
             row(icon: "globe",
                 title: model.tr("Ngôn ngữ", "Language"),
                 subtitle: model.language == "en" ? "English" : "Tiếng Việt") {
-                showLang = true
-                detent = .height(300)
+                openLanguage()
             }
             divider
             row(icon: "trash",
@@ -141,54 +127,6 @@ struct SettingsView: View {
             .fill(Theme.border)
             .frame(height: 1)
             .padding(.leading, 66)
-    }
-
-    // MARK: language content (the sheet itself becomes the picker)
-
-    private var languageContent: some View {
-        VStack(spacing: 10) {
-            Text(model.tr("Chọn ngôn ngữ", "Choose language"))
-                .font(.headline.weight(.heavy))
-                .foregroundColor(.white)
-                .padding(.top, 26)
-                .padding(.bottom, 6)
-            langOption("vi", "Tiếng Việt")
-            langOption("en", "English")
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Theme.background)
-    }
-
-    private func langOption(_ code: String, _ title: String) -> some View {
-        Button {
-            model.setLanguage(code)
-            showLang = false
-            detent = .fraction(0.90)
-        } label: {
-            HStack(spacing: 12) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
-                Spacer()
-                if model.language == code {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.white)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 13)
-            .background(Theme.card)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(model.language == code ? Theme.borderHi : Theme.border, lineWidth: 1)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(RowButtonStyle())
     }
 
 }
