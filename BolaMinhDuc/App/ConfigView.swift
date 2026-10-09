@@ -282,12 +282,14 @@ struct ConfigView: View {
                         .frame(height: 1)
                         .padding(.leading, 52)
                     boneSection
-                    Rectangle()
-                        .fill(Theme.border)
-                        .frame(height: 1)
-                        .padding(.leading, 52)
-                    toggleRowInline("skipknock", "figure.fall", model.tr("Bỏ qua gục", "Skip knocked"),
-                                    model.tr("Không khoá địch đã bị hạ gục", "Don't lock knocked-down enemies"))
+                    if model.flag("silent") {
+                        Rectangle()
+                            .fill(Theme.border)
+                            .frame(height: 1)
+                            .padding(.leading, 52)
+                        toggleRowInline("skipknock", "figure.fall", model.tr("Bỏ qua gục", "Skip knocked"),
+                                        model.tr("Không bắn vào địch đã bị hạ gục", "Don't shoot knocked-down enemies"))
+                    }
                 }
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
