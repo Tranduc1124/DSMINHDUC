@@ -9,26 +9,32 @@ struct SettingsView: View {
 
     var body: some View {
         ZStack {
-            Theme.background
-            Circle()
-                .fill(Color.white.opacity(0.045))
-                .frame(width: 320, height: 320)
-                .blur(radius: 80)
-                .offset(y: -190)
-                .allowsHitTesting(false)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    header
-                    rowsCard
+            Group {
+                Theme.background
+                Circle()
+                    .fill(Color.white.opacity(0.045))
+                    .frame(width: 320, height: 320)
+                    .blur(radius: 80)
+                    .offset(y: -190)
+                    .allowsHitTesting(false)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        header
+                        rowsCard
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 22)
+                    .padding(.bottom, 32)
+                    .opacity(appear ? 1 : 0)
+                    .offset(y: appear ? 0 : 14)
+                    .animation(.easeOut(duration: 0.35), value: appear)
+                    .onAppear { appear = true }
                 }
-                .padding(.horizontal, 18)
-                .padding(.top, 22)
-                .padding(.bottom, 32)
-                .opacity(appear ? 1 : 0)
-                .offset(y: appear ? 0 : 14)
-                .animation(.easeOut(duration: 0.35), value: appear)
-                .onAppear { appear = true }
             }
+            .scaleEffect(showLang ? 0.95 : 1, anchor: .top)
+            .offset(y: showLang ? 18 : 0)
+            .animation(.spring(response: 0.4, dampingFraction: 0.9), value: showLang)
+
             if showLang {
                 languagePanel
                     .zIndex(5)
