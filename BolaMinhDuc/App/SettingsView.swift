@@ -75,7 +75,7 @@ struct SettingsView: View {
             row(icon: "doc.text.magnifyingglass",
                 title: model.tr("Log văng game", "Crash logs"),
                 subtitle: model.tr("Lấy log lỗi gần đây để gửi dev", "Grab recent crash logs to send")) {
-                model.collectCrashLogs(showToast: true)
+                model.collectCrashLogs(toast: true)
             }
             divider
             row(icon: "trash",

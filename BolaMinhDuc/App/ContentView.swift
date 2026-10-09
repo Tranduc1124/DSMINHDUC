@@ -38,7 +38,7 @@ struct ContentView: View {
             model.bootstrap()
             BackgroundAudio.shared.ensureRunning()
             DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
-                model.collectCrashLogs(showToast: false)
+                model.collectCrashLogs(toast: false)
             }
         }
         .onChange(of: scenePhase) { phase in
@@ -46,7 +46,7 @@ struct ContentView: View {
             if phase == .active {
                 model.bootstrap()
                 model.refreshInstalled()
-                model.collectCrashLogs(showToast: false)
+                model.collectCrashLogs(toast: false)
             }
         }
         .toastOverlay(showSettings ? Binding<String?>.constant(nil) : $model.toastText)

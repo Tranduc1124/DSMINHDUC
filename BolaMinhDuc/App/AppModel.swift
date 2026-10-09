@@ -457,12 +457,12 @@ final class AppModel: ObservableObject {
     /// Copies recent crash reports (FreeFire / jetsam) + the game's own log
     /// into Documents/logs_vang so the user can send them.
     @discardableResult
-    func collectCrashLogs(showToast: Bool) -> Int {
+    func collectCrashLogs(toast: Bool) -> Int {
         var containers: [String] = []
         if let c = Installer.containerPath(for: GameTarget.freefireTH.rawValue) { containers.append(c) }
         if let c = Installer.containerPath(for: GameTarget.freefireMAX.rawValue) { containers.append(c) }
         let n = CrashLogs.collect(containers: containers)
-        if showToast {
+        if toast {
             if n > 0 {
                 showToast(tr("Đã lưu \(n) file log vào BOLAMINHDUC/logs_vang trong Files",
                              "Saved \(n) log file(s) to Files > BOLAMINHDUC/logs_vang"))
