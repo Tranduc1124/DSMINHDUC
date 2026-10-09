@@ -2,11 +2,11 @@ import Foundation
 import Darwin
 
 /// On-device pairing: finds the device's own `_remotepairing._tcp` service via
-/// Bonjour (this also triggers the Local Network permission prompt), then runs
-/// `tunnel_create_rppairing` against the discovered address with a freshly
-/// generated pairing file. Falls back to 10.7.0.1:49152 (LocalDevVPN) if the
-/// Bonjour browse finds nothing. If the device shows a pairing code, the pin
-/// callback asks the UI for it (pin relay).
+/// Bonjour (this also triggers the Local Network permission prompt), probes all
+/// plausible addresses (Bonjour result, every 10.7.x interface, 10.7.0.1,
+/// 127.0.0.1) with a raw TCP connect, then runs `tunnel_create_rppairing`
+/// against the first reachable one with a freshly generated pairing file.
+/// If the device shows a pairing code, the pin callback asks the UI for it.
 enum PairingHost {
 
     // MARK: pin relay (the device shows a code; the user types it in-app)
@@ -138,11 +138,13 @@ enum PairingHost {
         }
     }
 
-    /// Heuristic: LocalDevVPN uses 10.7.0.1; accept any 10.7.x address or any
-    /// active utun interface with an IPv4 address as "a tunnel is up".
-    static func vpnLoopbackPresent() -> Bool {
+    // MARK: interfaces + TCP probe
+
+    /// All UP IPv4 interfaces as (name, address) pairs.
+    static func ipv4Interfaces() -> [(String, String)] {
+        var out: [(String, String)] = []
         var addrs: UnsafeMutablePointer<ifaddrs>? = nil
-        guard getifaddrs(&addrs) == 0, let first = addrs else { return false }
+        guard getifaddrs(&addrs) == 0, let first = addrs else { return out }
         defer { freeifaddrs(addrs) }
         var ptr: UnsafeMutablePointer<ifaddrs>? = first
         while let cur = ptr {
@@ -152,20 +154,66 @@ enum PairingHost {
                 var sin = sockaddr_in()
                 memcpy(&sin, sa, MemoryLayout<sockaddr_in>.size)
                 var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
-                var addr = sin.sin_addr
-                inet_ntop(AF_INET, &addr, &buf, socklen_t(INET_ADDRSTRLEN))
-                let ip = String(cString: buf)
-                if ip.hasPrefix("10.7.") {
-                    return true
-                }
-                if name.hasPrefix("utun") && !ip.hasPrefix("127.") && !ip.hasPrefix("169.254.") {
-                    return true
-                }
+                var a = sin.sin_addr
+                inet_ntop(AF_INET, &a, &buf, socklen_t(INET_ADDRSTRLEN))
+                out.append((name, String(cString: buf)))
             }
             ptr = cur.pointee.ifa_next
         }
+        return out
+    }
+
+    /// Heuristic: LocalDevVPN uses 10.7.0.1; accept any 10.7.x address or any
+    /// active utun interface with an IPv4 address as "a tunnel is up".
+    static func vpnLoopbackPresent() -> Bool {
+        for (name, ip) in ipv4Interfaces() {
+            if ip.hasPrefix("10.7.") {
+                return true
+            }
+            if name.hasPrefix("utun") && !ip.hasPrefix("127.") && !ip.hasPrefix("169.254.") {
+                return true
+            }
+        }
         return false
     }
+
+    /// Raw non-blocking TCP connect probe; returns (connected, errno when not).
+    static func probe(ip: String, port: UInt16, timeout: TimeInterval = 1.5) -> (Bool, Int32) {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else { return (false, errno) }
+        defer { close(fd) }
+        let fl = fcntl(fd, F_GETFL, 0)
+        _ = fcntl(fd, F_SETFL, fl | O_NONBLOCK)
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = port.bigEndian
+        guard ip.withCString({ inet_pton(AF_INET, $0, &addr.sin_addr) }) == 1 else {
+            return (false, EINVAL)
+        }
+        let r = withUnsafePointer(to: &addr) { p in
+            p.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
+                connect(fd, sa, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        if r == 0 { return (true, 0) }
+        if errno != EINPROGRESS { return (false, errno) }
+        var pfd = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
+        let pr = poll(&pfd, 1, Int32(timeout * 1000))
+        if pr == 0 { return (false, ETIMEDOUT) }
+        if pr < 0 { return (false, errno) }
+        var soErr: Int32 = 0
+        var len = socklen_t(MemoryLayout<Int32>.size)
+        getsockopt(fd, SOL_SOCKET, SO_ERROR, &soErr, &len)
+        if soErr != 0 { return (false, soErr) }
+        return (true, 0)
+    }
+
+    static func errName(_ code: Int32) -> String {
+        let s = String(cString: strerror(code))
+        return "lỗi \(code) (\(s))"
+    }
+
+    // MARK: generate
 
     static func generate(progress: @escaping (String) -> Void) -> Result<String, PairError> {
         var file: OpaquePointer? = nil
@@ -179,16 +227,45 @@ enum PairingHost {
         defer { rp_pairing_file_free(pairFile) }
 
         progress("đang tìm dịch vụ ghép đôi (Bonjour)…")
-        var targetIP = "10.7.0.1"
-        var targetPort: UInt16 = 49152
-        if let found = RPBrowser().discover(timeout: 6) {
-            targetIP = found.0
-            if found.1 > 0 && found.1 < 65536 {
-                targetPort = UInt16(found.1)
-            }
-            progress("thấy dịch vụ tại \(targetIP):\(targetPort)")
+        let discovered = RPBrowser().discover(timeout: 6)
+        if let d = discovered {
+            progress("thấy dịch vụ tại \(d.0):\(d.1)")
         } else {
-            progress("không thấy Bonjour — thử mặc định 10.7.0.1:49152")
+            progress("không thấy Bonjour")
+        }
+
+        let ifaces = ipv4Interfaces()
+        var cands: [(String, UInt16)] = []
+        if let d = discovered, !d.0.contains(":") {
+            cands.append((d.0, UInt16(d.1)))
+        }
+        for (_, ip) in ifaces where ip.hasPrefix("10.7.") {
+            cands.append((ip, 49152))
+        }
+        cands.append(("10.7.0.1", 49152))
+        cands.append(("127.0.0.1", 49152))
+        var seen = Set<String>()
+        cands = cands.filter { seen.insert("\($0.0):\($0.1)").inserted }
+
+        var chosen: (String, UInt16)? = nil
+        var fails: [String] = []
+        for c in cands {
+            let (ok, e) = probe(ip: c.0, port: c.1)
+            if ok {
+                progress("kết nối được \(c.0):\(c.1)")
+                chosen = c
+                break
+            } else {
+                let es = errName(e)
+                progress("không kết nối được \(c.0):\(c.1) — \(es)")
+                fails.append("\(c.0):\(c.1) = \(es)")
+            }
+        }
+
+        guard let (targetIP, targetPort) = chosen else {
+            let ifDesc = ifaces.prefix(4).map { "\($0.0)=\($0.1)" }.joined(separator: ", ")
+            let msg = "không kết nối được server ghép đôi.\nMạng: \(ifDesc.isEmpty ? "không thấy mạng" : ifDesc)\nThử: \(fails.joined(separator: "; "))"
+            return .failure(PairError(message: msg))
         }
 
         var addr = sockaddr_in()
@@ -199,7 +276,7 @@ enum PairingHost {
             return .failure(PairError(message: "địa chỉ không hợp lệ (\(targetIP))"))
         }
 
-        progress("kết nối \(targetIP):\(targetPort)…")
+        progress("ghép đôi qua \(targetIP):\(targetPort)…")
 
         var adapter: OpaquePointer? = nil
         var handshake: OpaquePointer? = nil
@@ -232,7 +309,7 @@ enum PairingHost {
             let code = err.pointee.code
             let sub = err.pointee.sub_code
             let text = errorText(err)
-            return .failure(PairError(message: "lỗi ghép đôi (code \(code)/\(sub)): \(text)"))
+            return .failure(PairError(message: "lỗi ghép đôi (code \(code)/\(sub)) tại \(targetIP):\(targetPort): \(text)"))
         }
 
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
