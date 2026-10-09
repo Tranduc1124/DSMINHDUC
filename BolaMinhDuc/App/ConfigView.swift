@@ -313,6 +313,12 @@ struct ConfigView: View {
                             .fill(Theme.border)
                             .frame(height: 1)
                             .padding(.leading, 52)
+                        toggleRowInline("showfov", "circle.dashed", model.tr("Hiện vòng FOV", "Show FOV circle"),
+                                        model.tr("Ẩn/hiện vòng tròn FOV trên màn hình", "Show or hide the FOV circle on screen"))
+                        Rectangle()
+                            .fill(Theme.border)
+                            .frame(height: 1)
+                            .padding(.leading, 52)
                         toggleRowInline("skipknock", "figure.fall", model.tr("Bỏ qua gục", "Skip knocked"),
                                         model.tr("Không bắn vào địch đã bị hạ gục", "Don't shoot knocked-down enemies"))
                     }
