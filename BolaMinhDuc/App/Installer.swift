@@ -31,6 +31,27 @@ enum Installer {
     static let localConfigName = "localConfig.json"
     private static let applicationRoot = "/var/mobile/Containers/Data/Application"
 
+    /// Detects whether the game is installed — uses LSApplicationWorkspace so
+    /// it works even before the sandbox escape (falls back to the container scan).
+    static func isGameDetected(_ bundleID: String) -> Bool {
+        if let cls = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
+           let wsAny = cls.perform(NSSelectorFromString("defaultWorkspace"))?.takeUnretainedValue() as? NSObject,
+           let list = wsAny.perform(NSSelectorFromString("allInstalledApplications"))?.takeUnretainedValue() as? [NSObject] {
+            for app in list {
+                if let bid = app.perform(NSSelectorFromString("applicationIdentifier"))?.takeUnretainedValue() as? String,
+                   bid == bundleID {
+                    return true
+                }
+                if let bid = app.perform(NSSelectorFromString("bundleIdentifier"))?.takeUnretainedValue() as? String,
+                   bid == bundleID {
+                    return true
+                }
+            }
+            return false
+        }
+        return containerPath(for: bundleID) != nil
+    }
+
     /// nil when the container cannot be read (not activated / game missing).
     static func containerPath(for bundleID: String) -> String? {
         let fm = FileManager.default
