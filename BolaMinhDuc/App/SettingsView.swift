@@ -66,6 +66,7 @@ struct SettingsView: View {
     private var rowsCard: some View {
         VStack(spacing: 0) {
             row(icon: "globe",
+                emoji: model.language == "en" ? "🇺🇸" : "🇻🇳",
                 title: model.tr("Ngôn ngữ", "Language"),
                 subtitle: model.language == "en" ? "English" : "Tiếng Việt") {
                 openLanguage()
@@ -91,7 +92,7 @@ struct SettingsView: View {
         )
     }
 
-    private func row(icon: String, title: String, subtitle: String,
+    private func row(icon: String, emoji: String? = nil, title: String, subtitle: String,
                      action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
@@ -99,9 +100,14 @@ struct SettingsView: View {
                     Circle()
                         .fill(Theme.cardHi)
                         .frame(width: 38, height: 38)
-                    Image(systemName: icon)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                    if let emoji = emoji {
+                        Text(emoji)
+                            .font(.system(size: 19))
+                    } else {
+                        Image(systemName: icon)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)

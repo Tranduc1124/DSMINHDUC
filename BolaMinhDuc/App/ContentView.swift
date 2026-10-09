@@ -72,8 +72,8 @@ struct ContentView: View {
                 .font(.headline.weight(.heavy))
                 .foregroundColor(.white)
                 .padding(.bottom, 4)
-            langOption("vi", "Tiếng Việt")
-            langOption("en", "English")
+            langOption("vi", "🇻🇳", "Tiếng Việt")
+            langOption("en", "🇺🇸", "English")
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
@@ -89,12 +89,14 @@ struct ContentView: View {
         .padding(.bottom, 10)
     }
 
-    private func langOption(_ code: String, _ title: String) -> some View {
+    private func langOption(_ code: String, _ flag: String, _ title: String) -> some View {
         Button {
             model.setLanguage(code)
             closeLanguage()
         } label: {
             HStack(spacing: 12) {
+                Text(flag)
+                    .font(.system(size: 22))
                 Text(title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(.white)
