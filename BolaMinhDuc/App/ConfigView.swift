@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 /// Feature config for one game: ESP / AIM / MISC tabs + inject area.
 struct ConfigView: View {
@@ -118,6 +119,8 @@ struct ConfigView: View {
             toggleRow("aim", "scope", "Aimbot",
                       model.tr("Khoá địch gần tâm ngắm nhất", "Lock the enemy nearest the crosshair"))
             boneRow
+            toggleRow("silent", "cursorarrow.rays", model.tr("Aim Silent", "Silent Aim"),
+                      model.tr("Bắn lệch vẫn bay vào bone đã chọn", "Shots bend into the selected bone"))
         case .misc:
             comingSoonCard
         }
@@ -467,6 +470,19 @@ struct CustomColorPickerPanel: View {
     @State private var sat: Double
     @State private var val: Double
 
+    static let presets: [(Double, Double, Double)] = [
+        (1.00, 0.15, 0.15),
+        (1.00, 0.55, 0.10),
+        (1.00, 0.85, 0.10),
+        (0.55, 1.00, 0.35),
+        (0.10, 1.00, 0.10),
+        (0.10, 0.90, 1.00),
+        (0.25, 0.50, 1.00),
+        (0.65, 0.30, 1.00),
+        (1.00, 0.30, 0.65),
+        (1.00, 1.00, 1.00)
+    ]
+
     init(title: String,
          initial: (Double, Double, Double),
          onChange: @escaping (Double, Double, Double) -> Void,
@@ -481,21 +497,65 @@ struct CustomColorPickerPanel: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             Capsule()
                 .fill(Color.white.opacity(0.25))
                 .frame(width: 36, height: 5)
                 .padding(.top, 10)
+
             HStack(spacing: 10) {
                 Text(title)
                     .font(.headline.weight(.heavy))
                     .foregroundColor(.white)
                 Spacer()
+                Text(Self.hex(hue: hue, sat: sat, val: val))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(Theme.dim)
                 Circle()
                     .fill(Color(hue: hue, saturation: sat, brightness: val))
                     .frame(width: 26, height: 26)
                     .overlay(Circle().stroke(Theme.borderHi, lineWidth: 1))
             }
+
+            GeometryReader { geo in
+                let w = Double(geo.size.width)
+                let h = Double(geo.size.height)
+                ZStack(alignment: .topLeading) {
+                    Color(hue: hue, saturation: 1, brightness: 1)
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.white, Color.white.opacity(0)]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.black.opacity(0), Color.black]),
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    Circle()
+                        .fill(Color(hue: hue, saturation: sat, brightness: val))
+                        .frame(width: 18, height: 18)
+                        .overlay(Circle().stroke(Color.white, lineWidth: 2.5))
+                        .shadow(color: .black.opacity(0.6), radius: 3)
+                        .offset(x: CGFloat(max(0, min(w - 18, sat * w - 9))),
+                                y: CGFloat(max(0, min(h - 18, (1 - val) * h - 9))))
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { g in
+                            let s = max(0, min(1, Double(g.location.x) / max(1.0, w)))
+                            let v2 = max(0, min(1, 1 - Double(g.location.y) / max(1.0, h)))
+                            sat = s
+                            val = v2
+                            let rgb = Self.hsvToRGB(hue, s, v2)
+                            onChange(rgb.0, rgb.1, rgb.2)
+                        }
+                )
+            }
+            .frame(height: 130)
+
             gradientSlider(
                 Gradient(colors: [
                     Color(hue: 0.00, saturation: 1, brightness: 1),
@@ -512,28 +572,27 @@ struct CustomColorPickerPanel: View {
                 let rgb = Self.hsvToRGB(v, sat, val)
                 onChange(rgb.0, rgb.1, rgb.2)
             }
-            gradientSlider(
-                Gradient(colors: [
-                    Color(hue: hue, saturation: 0, brightness: val),
-                    Color(hue: hue, saturation: 1, brightness: val)
-                ]),
-                value: sat
-            ) { v in
-                sat = v
-                let rgb = Self.hsvToRGB(hue, v, val)
-                onChange(rgb.0, rgb.1, rgb.2)
+
+            HStack(spacing: 7) {
+                ForEach(0..<Self.presets.count, id: \.self) { i in
+                    let p = Self.presets[i]
+                    Button {
+                        let hsv = Self.rgbToHSV(p.0, p.1, p.2)
+                        hue = hsv.0
+                        sat = hsv.1
+                        val = hsv.2
+                        onChange(p.0, p.1, p.2)
+                    } label: {
+                        Circle()
+                            .fill(Color(red: p.0, green: p.1, blue: p.2))
+                            .frame(width: 20, height: 20)
+                            .overlay(Circle().stroke(Theme.borderHi, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            gradientSlider(
-                Gradient(colors: [
-                    Color(hue: hue, saturation: sat, brightness: 0),
-                    Color(hue: hue, saturation: sat, brightness: 1)
-                ]),
-                value: val
-            ) { v in
-                val = v
-                let rgb = Self.hsvToRGB(hue, sat, v)
-                onChange(rgb.0, rgb.1, rgb.2)
-            }
+            .frame(maxWidth: .infinity)
+
             Button {
                 onClose()
             } label: {
@@ -586,6 +645,14 @@ struct CustomColorPickerPanel: View {
             )
         }
         .frame(height: 26)
+    }
+
+    static func hex(hue: Double, sat: Double, val: Double) -> String {
+        let (r, g, b) = hsvToRGB(hue, sat, val)
+        let ri = Int(max(0, min(255, (r * 255).rounded())))
+        let gi = Int(max(0, min(255, (g * 255).rounded())))
+        let bi = Int(max(0, min(255, (b * 255).rounded())))
+        return String(format: "#%02X%02X%02X", ri, gi, bi)
     }
 
     static func hsvToRGB(_ h: Double, _ s: Double, _ v: Double) -> (Double, Double, Double) {

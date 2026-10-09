@@ -23,7 +23,7 @@ final class AppModel: ObservableObject {
     private var toastToken = 0
 
     /// feature toggles shown in the app (pushed to the game live + persisted)
-    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim"]
+    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
@@ -51,7 +51,7 @@ final class AppModel: ObservableObject {
             if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
                 d[k] = v
             } else {
-                d[k] = (k == "aim") ? false : true
+                d[k] = (k == "aim" || k == "silent") ? false : true
             }
         }
         cfgFlags = d
@@ -132,7 +132,7 @@ final class AppModel: ObservableObject {
     // bolacfg.bin = 16 obfuscated payload bytes + 4-byte CRC32 (little endian).
     // payload: "BOLA" | ver=1 | flags | - | 0...
     // flags bits: 0 box, 1 line, 2 hp, 3 name, 4 dist, 5 bot, 7 count.
-    // byte 7: bit0 aim, bit1 skeleton bones; byte 8: aim bone (0 head, 1 neck, 2 chest).
+    // byte 7: bit0 aim, bit1 skeleton bones, bit2 silent aim; byte 8: aim bone (0 head, 1 neck, 2 chest).
     // bytes 9..14: RGB565 box / line / bone colors (0 = default red).
     // The payload is XOR-ed with a per-index keystream, so a hand-edited file
     // without a matching checksum is ignored by the running patch.
@@ -174,6 +174,7 @@ final class AppModel: ObservableObject {
         var extra: UInt8 = 0
         if flag("aim") { extra |= 1 }
         if flag("bone") { extra |= 2 }
+        if flag("silent") { extra |= 4 }
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
         let (c9, c10) = pack565("box")
