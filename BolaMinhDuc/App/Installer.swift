@@ -1,4 +1,6 @@
 import Foundation
+import UIKit
+import Darwin
 
 enum GameTarget: String, CaseIterable, Identifiable {
     case freefireTH = "com.dts.freefireth"
@@ -31,25 +33,59 @@ enum Installer {
     static let localConfigName = "localConfig.json"
     private static let applicationRoot = "/var/mobile/Containers/Data/Application"
 
-    /// Detects whether the game is installed — uses LSApplicationWorkspace so
-    /// it works even before the sandbox escape (falls back to the container scan).
+    /// Detects whether the game is installed — works even before the sandbox
+    /// escape: LSApplicationWorkspace enumeration (+ dlopen fallback), then the
+    /// game's URL scheme, then the container scan when the escape is active.
     static func isGameDetected(_ bundleID: String) -> Bool {
-        if let cls = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
-           let wsAny = cls.perform(NSSelectorFromString("defaultWorkspace"))?.takeUnretainedValue() as? NSObject,
-           let list = wsAny.perform(NSSelectorFromString("allInstalledApplications"))?.takeUnretainedValue() as? [NSObject] {
+        if isDetectedViaLS(bundleID) {
+            return true
+        }
+        if bundleID == "com.dts.freefireth", canOpenURLScheme("freefire") {
+            return true
+        }
+        return containerPath(for: bundleID) != nil
+    }
+
+    private static func isDetectedViaLS(_ bundleID: String) -> Bool {
+        loadLSFrameworkIfNeeded()
+        guard let cls = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
+              let ws = cls.perform(NSSelectorFromString("defaultWorkspace"))?.takeUnretainedValue() as? NSObject else {
+            return false
+        }
+        for selName in ["allInstalledApplications", "allApplications"] {
+            guard let list = ws.perform(NSSelectorFromString(selName))?.takeUnretainedValue() as? [NSObject] else {
+                continue
+            }
             for app in list {
-                if let bid = app.perform(NSSelectorFromString("applicationIdentifier"))?.takeUnretainedValue() as? String,
-                   bid == bundleID {
-                    return true
-                }
                 if let bid = app.perform(NSSelectorFromString("bundleIdentifier"))?.takeUnretainedValue() as? String,
                    bid == bundleID {
                     return true
                 }
+                if let bid = app.perform(NSSelectorFromString("applicationIdentifier"))?.takeUnretainedValue() as? String,
+                   bid == bundleID {
+                    return true
+                }
             }
-            return false
         }
-        return containerPath(for: bundleID) != nil
+        return false
+    }
+
+    private static func loadLSFrameworkIfNeeded() {
+        if NSClassFromString("LSApplicationWorkspace") != nil {
+            return
+        }
+        let paths = [
+            "/System/Library/PrivateFrameworks/MobileCoreServices.framework/MobileCoreServices",
+            "/System/Library/Frameworks/MobileCoreServices.framework/MobileCoreServices"
+        ]
+        for p in paths {
+            _ = dlopen(p, RTLD_NOW)
+        }
+    }
+
+    private static func canOpenURLScheme(_ scheme: String) -> Bool {
+        guard let url = URL(string: scheme + "://") else { return false }
+        return UIApplication.shared.canOpenURL(url)
     }
 
     /// nil when the container cannot be read (not activated / game missing).

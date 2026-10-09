@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Main screen: hero card (logo + device stats) + game list. No tab bar.
+/// Main screen: hero card (logo + device stats) + game list. Monochrome theme.
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
     var openGame: (GameTarget) -> Void
@@ -56,7 +56,7 @@ struct HomeView: View {
                     RoundedRectangle(cornerRadius: 15, style: .continuous)
                         .fill(Color.white)
                         .frame(width: 52, height: 52)
-                        .shadow(color: .white.opacity(0.25), radius: 18, y: 5)
+                        .shadow(color: .white.opacity(0.18), radius: 16, y: 4)
                     Image(systemName: "bolt.shield.fill")
                         .font(.system(size: 23, weight: .bold))
                         .foregroundColor(.black)
@@ -66,7 +66,7 @@ struct HomeView: View {
                         .font(.headline.weight(.heavy))
                         .foregroundColor(.white)
                         .tracking(0.6)
-                    Text(model.tr("Trợ lý trong game", "In-game toolkit"))
+                    Text(model.tr("Trợ lý trong game", "In-game toolkit") + " • " + DeviceInfo.appVersion)
                         .font(.caption2)
                         .foregroundColor(Theme.dim)
                 }
@@ -113,7 +113,6 @@ struct HomeView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(Theme.border, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
         .opacity(appear ? 1 : 0)
         .offset(y: appear ? 0 : 10)
         .animation(.easeOut(duration: 0.35), value: appear)
@@ -168,16 +167,15 @@ struct HomeView: View {
                 } label: {
                     HStack(spacing: 14) {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(gameIconGradient(game))
-                                .frame(width: 54, height: 54)
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                .fill(Theme.cardHi)
+                                .frame(width: 52, height: 52)
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                        .stroke(Theme.border, lineWidth: 1)
                                 )
-                                .shadow(color: gameAccent(game).opacity(0.35), radius: 12, y: 4)
                             Image(systemName: game == .freefireTH ? "flame.fill" : "bolt.fill")
-                                .font(.system(size: 22, weight: .semibold))
+                                .font(.system(size: 21, weight: .semibold))
                                 .foregroundColor(.white)
                         }
                         VStack(alignment: .leading, spacing: 4) {
@@ -191,33 +189,18 @@ struct HomeView: View {
                         Spacer()
                         VStack(alignment: .trailing, spacing: 9) {
                             detectPill(detected[game.rawValue] ?? false)
-                            ZStack {
-                                Circle()
-                                    .fill(Theme.cardHi)
-                                    .frame(width: 26, height: 26)
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.white)
-                            }
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(Theme.dimmer)
                         }
                     }
-                    .padding(13)
-                    .background(
-                        LinearGradient(colors: [Theme.cardHi.opacity(0.55), Theme.card],
-                                       startPoint: .topLeading, endPoint: .bottomTrailing)
-                    )
+                    .padding(14)
+                    .background(Theme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .stroke(Theme.border, lineWidth: 1)
                     )
-                    .overlay(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(gameAccent(game))
-                            .frame(width: 3)
-                            .padding(.vertical, 14)
-                            .padding(.leading, 1)
-                    }
                 }
                 .buttonStyle(CardButtonStyle())
                 .opacity(appear ? 1 : 0)
@@ -227,39 +210,22 @@ struct HomeView: View {
         }
     }
 
-    private func gameAccent(_ game: GameTarget) -> Color {
-        game == .freefireTH
-            ? Color(red: 1.0, green: 0.42, blue: 0.2)
-            : Color(red: 0.35, green: 0.55, blue: 1.0)
-    }
-
-    private func gameIconGradient(_ game: GameTarget) -> LinearGradient {
-        if game == .freefireTH {
-            return LinearGradient(colors: [Color(red: 1.0, green: 0.55, blue: 0.15),
-                                           Color(red: 0.9, green: 0.18, blue: 0.15)],
-                                  startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-        return LinearGradient(colors: [Color(red: 0.45, green: 0.6, blue: 1.0),
-                                       Color(red: 0.5, green: 0.25, blue: 0.95)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
-    }
-
     private func detectPill(_ found: Bool) -> some View {
         HStack(spacing: 5) {
             Circle()
-                .fill(found ? Color.green : Color.red.opacity(0.85))
+                .fill(found ? Color.white : Theme.dimmer)
                 .frame(width: 6, height: 6)
             Text(found
                  ? model.tr("Đã phát hiện", "Detected")
-                 : model.tr("Không phát hiện", "Not found"))
+                 : model.tr("Không thấy game", "Not found"))
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(found ? .white : Theme.dim)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 4)
         .background(Theme.cardHi)
         .clipShape(Capsule())
-        .overlay(Capsule().stroke(Theme.borderHi, lineWidth: 1))
+        .overlay(Capsule().stroke(Theme.border, lineWidth: 1))
     }
 
     // MARK: hint

@@ -24,20 +24,30 @@ targets:
     platform: iOS
     sources:
       - path: BolaMinhDuc
+        excludes:
+          - "Info.plist"
+    info:
+      path: BolaMinhDuc/Info.plist
+      properties:
+        CFBundleDisplayName: BOLAMINHDUC
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UIApplicationSupportsIndirectInputEvents: true
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UILaunchScreen: {}
+        LSApplicationQueriesSchemes:
+          - freefire
+        NSLocalNetworkUsageDescription: "Cần cho tính năng ghép đôi thiết bị (pairing file)."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bolaminhduc.bolapatch
         PRODUCT_NAME: BolaMinhDuc
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: BOLAMINHDUC
-        INFOPLIST_KEY_CFBundleShortVersionString: "1.0.0"
-        INFOPLIST_KEY_CFBundleVersion: "1"
-        INFOPLIST_KEY_UIFileSharingEnabled: YES
-        INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
-        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleLightContent
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         SWIFT_OBJC_BRIDGING_HEADER: BolaMinhDuc/BolaMinhDuc-Bridging-Header.h
         OTHER_LDFLAGS: "-lz"
         TARGETED_DEVICE_FAMILY: "1,2"
