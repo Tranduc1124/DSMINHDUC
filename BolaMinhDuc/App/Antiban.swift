@@ -21,11 +21,17 @@ enum Antiban {
         guard let container = Installer.containerPath(for: game.rawValue) else { return 0 }
         var removed = 0
 
+        // the reference tool's exact telemetry / crash-cache list
         let fixed = [
             "Library/Caches/Analytics",
+            "Library/Caches/CrashReporter",
+            "Library/Caches/crashes",
+            "Library/Caches/com.crashlytics.data",
             "Library/Caches/bugly",
-            "Library/Caches/KSCrash",
-            "Library/Caches/Crashlytics"
+            "Library/Caches/com.google.firebase",
+            "Library/Caches/com.appsflyer",
+            "Library/Caches/adjust-sdk",
+            "Library/Caches/Snapshots"
         ]
         for rel in fixed {
             let p = container + "/" + rel
