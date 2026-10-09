@@ -27,6 +27,7 @@ final class AppModel: ObservableObject {
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
+    @Published var silentFov: Int = 30
 
     /// "vi" or "en" -- in-app language
     @Published var language: String = UserDefaults.standard.string(forKey: "bola_lang") ?? "vi"
@@ -63,6 +64,10 @@ final class AppModel: ObservableObject {
         }
         cfgFlags = d
         aimBone = UserDefaults.standard.integer(forKey: "bola_bone")
+        let storedFov = UserDefaults.standard.object(forKey: "bola_fov") as? Int
+        if let f = storedFov, f >= 5 && f <= 100 {
+            silentFov = f
+        }
     }
 
     /// The one patch bundled in the app — custom patches are not accepted.
@@ -94,6 +99,15 @@ final class AppModel: ObservableObject {
     func setBone(_ value: Int) {
         aimBone = value
         UserDefaults.standard.set(value, forKey: "bola_bone")
+        writeConfig()
+    }
+
+    func setSilentFov(_ value: Int) {
+        var v = value
+        if v < 5 { v = 5 }
+        if v > 100 { v = 100 }
+        silentFov = v
+        UserDefaults.standard.set(v, forKey: "bola_fov")
         writeConfig()
     }
 
@@ -194,6 +208,7 @@ final class AppModel: ObservableObject {
         if flag("skipknock") { extra |= 8 }
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
+        payload[15] = UInt8(max(5, min(100, silentFov)))
         let (c9, c10) = pack565("box")
         let (c11, c12) = pack565("line")
         let (c13, c14) = pack565("bone")

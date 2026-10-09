@@ -287,6 +287,32 @@ struct ConfigView: View {
                             .fill(Theme.border)
                             .frame(height: 1)
                             .padding(.leading, 52)
+                        VStack(spacing: 8) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "circle.dashed")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 26)
+                                Text(model.tr("FOV", "FOV"))
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(.white)
+                                Spacer()
+                                Text("\(model.silentFov)%")
+                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                    .foregroundColor(Theme.dim)
+                            }
+                            Slider(value: Binding(
+                                get: { Double(model.silentFov) },
+                                set: { model.setSilentFov(Int($0)) }
+                            ), in: 5...100, step: 5)
+                            .tint(.white)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        Rectangle()
+                            .fill(Theme.border)
+                            .frame(height: 1)
+                            .padding(.leading, 52)
                         toggleRowInline("skipknock", "figure.fall", model.tr("Bỏ qua gục", "Skip knocked"),
                                         model.tr("Không bắn vào địch đã bị hạ gục", "Don't shoot knocked-down enemies"))
                     }
