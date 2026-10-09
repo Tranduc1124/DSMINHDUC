@@ -26,6 +26,8 @@ targets:
       - path: BolaMinhDuc
         excludes:
           - "Info.plist"
+    dependencies:
+      - library: vendor/idevice/libidevice_ffi.a
     info:
       path: BolaMinhDuc/Info.plist
       properties:
@@ -49,6 +51,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.bolaminhduc.bolapatch
         PRODUCT_NAME: BolaMinhDuc
         SWIFT_OBJC_BRIDGING_HEADER: BolaMinhDuc/BolaMinhDuc-Bridging-Header.h
-        OTHER_LDFLAGS: "-lz"
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/vendor/idevice"
+        OTHER_LDFLAGS: "-lz -lc++"
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic

@@ -171,6 +171,33 @@ struct SettingsView: View {
                         .foregroundColor(.white)
                     Spacer()
                 }
+                if let pin = model.pairingPin {
+                    HStack(spacing: 10) {
+                        Image(systemName: "number.square.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(model.tr("Mã ghép đôi", "Pair code"))
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(Theme.dimmer)
+                            Text(pin)
+                                .font(.system(size: 22, weight: .heavy, design: .monospaced))
+                                .foregroundColor(.white)
+                        }
+                        Spacer()
+                        Text(model.tr("nhập mã trên máy", "type it on the device"))
+                            .font(.caption2)
+                            .foregroundColor(Theme.dim)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Theme.borderHi, lineWidth: 1)
+                    )
+                }
                 if model.pairingValid {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(model.pairingName ?? "")
@@ -202,8 +229,8 @@ struct SettingsView: View {
                 }
                 .disabled(model.pairingBusy)
                 .opacity(model.pairingBusy ? 0.6 : 1)
-                Text(model.tr("Bấm “Tạo trên máy” rồi bấm Tin cậy khi máy hỏi — không cần máy tính.",
-                              "Tap “Generate on-device”, then tap Trust when the device asks — no computer needed."))
+                Text(model.tr("Bật LocalDevVPN trước, rồi bấm “Tạo trên máy” và làm theo hướng dẫn trên máy.",
+                              "Turn on LocalDevVPN first, then tap “Generate on-device” and follow the on-screen prompts."))
                     .font(.caption2)
                     .foregroundColor(Theme.dim)
                     .frame(maxWidth: .infinity, alignment: .leading)

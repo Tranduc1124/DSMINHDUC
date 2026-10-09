@@ -36,6 +36,7 @@ final class AppModel: ObservableObject {
     @Published var pairingIdentifier: String? = nil
     @Published var pairingValid = false
     @Published var pairingBusy = false
+    @Published var pairingPin: String? = nil
 
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
     private var cancelRequested = false
@@ -495,18 +496,30 @@ final class AppModel: ObservableObject {
         refreshPairing()
     }
 
-    /// Generates the pairing file ON-DEVICE (usbmuxd loopback + classic Pair).
+    /// Generates the pairing file ON-DEVICE (FFI pairable-host; needs LocalDevVPN).
     func generatePairingOnDevice() {
         guard !pairingBusy else { return }
         pairingBusy = true
+        pairingPin = nil
         append("pairing: bắt đầu tạo trên máy…")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = PairingGenerator.generate { line in
-                DispatchQueue.main.async { self?.append("pairing: " + line) }
-            }
+            let result = PairingHost.generate(
+                progress: { line in
+                    DispatchQueue.main.async { self?.append("pairing: " + line) }
+                },
+                onPin: { pin in
+                    DispatchQueue.main.async {
+                        self?.pairingPin = pin
+                        self?.append("pairing: mã ghép đôi " + pin)
+                        self?.showToast(self?.tr("Mã ghép đôi: \(pin) — nhập vào máy",
+                                                 "Pair code: \(pin) — type it on the device") ?? pin)
+                    }
+                }
+            )
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.pairingBusy = false
+                self.pairingPin = nil
                 switch result {
                 case .success:
                     self.append("pairing: tạo xong")

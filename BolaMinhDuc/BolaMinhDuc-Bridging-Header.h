@@ -8,3 +8,4 @@
 #import "Exploit/krw.h"
 #import "Exploit/kutils.h"
 #import "App/GameLauncher.h"
+#import "idevice.h"
