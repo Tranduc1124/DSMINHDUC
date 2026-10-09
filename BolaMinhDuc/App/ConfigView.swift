@@ -509,7 +509,8 @@ struct CustomColorPickerPanel: View {
                 value: hue
             ) { v in
                 hue = v
-                onChange(Self.hsvToRGB(v, sat, val))
+                let rgb = Self.hsvToRGB(v, sat, val)
+                onChange(rgb.0, rgb.1, rgb.2)
             }
             gradientSlider(
                 Gradient(colors: [
@@ -519,7 +520,8 @@ struct CustomColorPickerPanel: View {
                 value: sat
             ) { v in
                 sat = v
-                onChange(Self.hsvToRGB(hue, v, val))
+                let rgb = Self.hsvToRGB(hue, v, val)
+                onChange(rgb.0, rgb.1, rgb.2)
             }
             gradientSlider(
                 Gradient(colors: [
@@ -529,7 +531,8 @@ struct CustomColorPickerPanel: View {
                 value: val
             ) { v in
                 val = v
-                onChange(Self.hsvToRGB(hue, sat, v))
+                let rgb = Self.hsvToRGB(hue, sat, v)
+                onChange(rgb.0, rgb.1, rgb.2)
             }
             Button {
                 onClose()
