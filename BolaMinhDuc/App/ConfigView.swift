@@ -115,6 +115,8 @@ struct ConfigView: View {
                       model.tr("Hiện cả bot (AI)", "Show bots (AI) too"))
             toggleRow("count", "number", model.tr("Đếm Địch", "Enemy Count"),
                       model.tr("Số địch + bot ở trên màn hình", "Enemies + bots shown on screen"))
+            toggleRow("team", "person.3.fill", model.tr("ESP Đội", "Team ESP"),
+                      model.tr("Hiện đồng đội (màu xanh)", "Show teammates (green)"))
         case .aim:
             aimCard
         case .misc:
