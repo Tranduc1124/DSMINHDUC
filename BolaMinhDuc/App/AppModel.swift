@@ -35,6 +35,7 @@ final class AppModel: ObservableObject {
     @Published var pairingName: String? = nil
     @Published var pairingIdentifier: String? = nil
     @Published var pairingValid = false
+    @Published var pairingBusy = false
 
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
     private var cancelRequested = false
@@ -492,5 +493,30 @@ final class AppModel: ObservableObject {
               let name = pairingName else { return }
         try? fm.removeItem(at: docs.appendingPathComponent(name))
         refreshPairing()
+    }
+
+    /// Generates the pairing file ON-DEVICE (usbmuxd loopback + classic Pair).
+    func generatePairingOnDevice() {
+        guard !pairingBusy else { return }
+        pairingBusy = true
+        append("pairing: bắt đầu tạo trên máy…")
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = PairingGenerator.generate { line in
+                DispatchQueue.main.async { self?.append("pairing: " + line) }
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.pairingBusy = false
+                switch result {
+                case .success:
+                    self.append("pairing: tạo xong")
+                    self.showToast(self.tr("Đã tạo file ghép đôi", "Pairing file created"))
+                case .failure(let msg):
+                    self.append("pairing: lỗi — " + msg)
+                    self.showToast(msg)
+                }
+                self.refreshPairing()
+            }
+        }
     }
 }

@@ -194,6 +194,19 @@ struct SettingsView: View {
                     .font(.caption2)
                     .foregroundColor(Theme.dim)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                pillButton(model.pairingBusy
+                           ? model.tr("Đang tạo…", "Generating…")
+                           : model.tr("Tạo trên máy", "Generate on-device"),
+                           primary: false) {
+                    model.generatePairingOnDevice()
+                }
+                .disabled(model.pairingBusy)
+                .opacity(model.pairingBusy ? 0.6 : 1)
+                Text(model.tr("Bấm “Tạo trên máy” rồi bấm Tin cậy khi máy hỏi — không cần máy tính.",
+                              "Tap “Generate on-device”, then tap Trust when the device asks — no computer needed."))
+                    .font(.caption2)
+                    .foregroundColor(Theme.dim)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 10) {
                     pillButton(model.tr("Làm mới", "Refresh"), primary: false) {
                         model.refreshPairing()
