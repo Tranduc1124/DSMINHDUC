@@ -5,7 +5,7 @@ import Darwin
 /// Bonjour (this also triggers the Local Network permission prompt), probes all
 /// plausible addresses (Bonjour result, every 10.7.x interface, 10.7.0.1,
 /// 127.0.0.1) with a raw TCP connect, then runs `tunnel_create_rppairing`
-/// against the first reachable one with a freshly generated pairing file.
+/// against each reachable one with a freshly generated pairing file.
 /// If the device shows a pairing code, the pin callback asks the UI for it.
 enum PairingHost {
 
@@ -213,6 +213,59 @@ enum PairingHost {
         return "lỗi \(code) (\(s))"
     }
 
+    static func shortErr(_ code: Int32) -> String {
+        switch code {
+        case 61: return "refused"
+        case 65: return "no route"
+        case 51: return "unreachable"
+        case 60: return "timeout"
+        case 1: return "denied"
+        default: return String(cString: strerror(code))
+        }
+    }
+
+    // MARK: pairing attempt against one address
+
+    private static func attemptPairing(ip: String, port: UInt16, pairFile: OpaquePointer) -> (Bool, String) {
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = port.bigEndian
+        guard ip.withCString({ inet_pton(AF_INET, $0, &addr.sin_addr) }) == 1 else {
+            return (false, "địa chỉ sai")
+        }
+        var adapter: OpaquePointer? = nil
+        var handshake: OpaquePointer? = nil
+        let err: UnsafeMutablePointer<IdeviceFfiError>? = withUnsafePointer(to: &addr) { p in
+            p.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
+                tunnel_create_rppairing(
+                    sa,
+                    socklen_t(MemoryLayout<sockaddr_in>.stride),
+                    "BolaMinhDuc",
+                    pairFile,
+                    pinEntryCallback,
+                    nil,
+                    &adapter,
+                    &handshake
+                )
+            }
+        }
+        defer {
+            if let handshake = handshake {
+                rsd_handshake_free(handshake)
+            }
+            if let adapter = adapter {
+                adapter_free(adapter)
+            }
+        }
+        if let err = err {
+            let code = err.pointee.code
+            let sub = err.pointee.sub_code
+            let text = errorText(err)
+            return (false, "lỗi \(code)/\(sub): \(text)")
+        }
+        return (true, "")
+    }
+
     // MARK: generate
 
     static func generate(progress: @escaping (String) -> Void) -> Result<String, PairError> {
@@ -247,79 +300,66 @@ enum PairingHost {
         var seen = Set<String>()
         cands = cands.filter { seen.insert("\($0.0):\($0.1)").inserted }
 
-        var chosen: (String, UInt16)? = nil
-        var fails: [String] = []
+        var probeSummary: [String] = []
+        var oks: [(String, UInt16)] = []
         for c in cands {
             let (ok, e) = probe(ip: c.0, port: c.1)
             if ok {
                 progress("kết nối được \(c.0):\(c.1)")
-                chosen = c
-                break
+                probeSummary.append("\(c.0):\(c.1)=OK")
+                oks.append(c)
             } else {
-                let es = errName(e)
-                progress("không kết nối được \(c.0):\(c.1) — \(es)")
-                fails.append("\(c.0):\(c.1) = \(es)")
+                progress("không kết nối được \(c.0):\(c.1) — \(errName(e))")
+                probeSummary.append("\(c.0):\(c.1)=\(shortErr(e))")
             }
         }
 
-        guard let (targetIP, targetPort) = chosen else {
-            let ifDesc = ifaces.prefix(4).map { "\($0.0)=\($0.1)" }.joined(separator: ", ")
-            let msg = "không kết nối được server ghép đôi.\nMạng: \(ifDesc.isEmpty ? "không thấy mạng" : ifDesc)\nThử: \(fails.joined(separator: "; "))"
+        // Route test: lockdownd (port 62078) listens on all interfaces, so a
+        // connect to 10.7.0.1:62078 tells us whether the VPN routes 10.7.x.
+        let (routeOK, routeErr) = probe(ip: "10.7.0.1", port: 62078)
+        let routeText = routeOK ? "tới được" : shortErr(routeErr)
+        progress("route 10.7.0.1 → \(routeText)")
+
+        let ifDesc = ifaces.prefix(4).map { "\($0.0)=\($0.1)" }.joined(separator: ", ")
+        let ifLine = ifDesc.isEmpty ? "không thấy mạng" : ifDesc
+        let guide: String
+        if routeOK {
+            guide = "→ Route VPN OK — thử tắt/bật lại LocalDevVPN rồi thử lại."
+        } else if routeErr == 65 || routeErr == 51 {
+            guide = "→ VPN chưa route 10.7.0.1: mở LocalDevVPN, tắt/bật lại VPN (giữ Wi-Fi bật)."
+        } else if routeErr == 60 {
+            guide = "→ VPN không phản hồi: tắt/bật lại LocalDevVPN + Wi-Fi."
+        } else if routeErr == 61 {
+            guide = "→ 10.7.0.1 tới được nhưng không mở cổng — tắt/bật lại LocalDevVPN."
+        } else {
+            guide = "→ Kiểm tra LocalDevVPN đang bật, dùng địa chỉ mặc định 10.7.0.1."
+        }
+
+        if oks.isEmpty {
+            let msg = "không kết nối được server ghép đôi.\nMạng: \(ifLine)\nKết nối: \(probeSummary.joined(separator: "; "))\nRoute 10.7.0.1: \(routeText)\n\(guide)"
             return .failure(PairError(message: msg))
         }
 
-        var addr = sockaddr_in()
-        addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = targetPort.bigEndian
-        let parseResult = targetIP.withCString { inet_pton(AF_INET, $0, &addr.sin_addr) }
-        guard parseResult == 1 else {
-            return .failure(PairError(message: "địa chỉ không hợp lệ (\(targetIP))"))
-        }
-
-        progress("ghép đôi qua \(targetIP):\(targetPort)…")
-
-        var adapter: OpaquePointer? = nil
-        var handshake: OpaquePointer? = nil
-
-        let err: UnsafeMutablePointer<IdeviceFfiError>? = withUnsafePointer(to: &addr) { p in
-            p.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
-                tunnel_create_rppairing(
-                    sa,
-                    socklen_t(MemoryLayout<sockaddr_in>.stride),
-                    "BolaMinhDuc",
-                    pairFile,
-                    pinEntryCallback,
-                    nil,
-                    &adapter,
-                    &handshake
-                )
+        var attempts: [String] = []
+        for c in oks {
+            progress("ghép đôi qua \(c.0):\(c.1)…")
+            let (ok, desc) = attemptPairing(ip: c.0, port: c.1, pairFile: pairFile)
+            if ok {
+                let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                let url = docs.appendingPathComponent("bola_pairing.mobiledevicepairing")
+                let writeErr = rp_pairing_file_write(pairFile, url.path)
+                if let writeErr = writeErr {
+                    return .failure(PairError(message: errorText(writeErr)))
+                }
+                progress("đã lưu file ghép đôi")
+                return .success("bola_pairing.mobiledevicepairing")
             }
+            attempts.append("\(c.0):\(c.1) → \(desc)")
+            progress("thất bại tại \(c.0):\(c.1)")
         }
 
-        defer {
-            if let handshake = handshake {
-                rsd_handshake_free(handshake)
-            }
-            if let adapter = adapter {
-                adapter_free(adapter)
-            }
-        }
-
-        if let err = err {
-            let code = err.pointee.code
-            let sub = err.pointee.sub_code
-            let text = errorText(err)
-            return .failure(PairError(message: "lỗi ghép đôi (code \(code)/\(sub)) tại \(targetIP):\(targetPort): \(text)"))
-        }
-
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let url = docs.appendingPathComponent("bola_pairing.mobiledevicepairing")
-        let writeErr = rp_pairing_file_write(pairFile, url.path)
-        if let writeErr = writeErr {
-            return .failure(PairError(message: errorText(writeErr)))
-        }
-        progress("đã lưu file ghép đôi")
-        return .success("bola_pairing.mobiledevicepairing")
+        let msg = "không ghép đôi được.\nMạng: \(ifLine)\nKết nối: \(probeSummary.joined(separator: "; "))\nRoute 10.7.0.1: \(routeText)\nGhép đôi: \(attempts.joined(separator: " | "))\n\(guide)"
+        return .failure(PairError(message: msg))
     }
 
     private static func errorText(_ err: UnsafeMutablePointer<IdeviceFfiError>) -> String {
