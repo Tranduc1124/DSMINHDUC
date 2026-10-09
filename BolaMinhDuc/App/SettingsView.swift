@@ -3,6 +3,7 @@ import SwiftUI
 /// CÀI ĐẶT — Delta-style sheet: big header, rounded rows card, language picker.
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
+    @Binding var detent: PresentationDetent
 
     @State private var appear = false
     @State private var showLang = false
@@ -31,12 +32,13 @@ struct SettingsView: View {
                     .onAppear { appear = true }
                 }
             }
-            .scaleEffect(showLang ? 0.95 : 1, anchor: .top)
-            .offset(y: showLang ? 18 : 0)
+            .offset(y: showLang ? 420 : 0)
+            .opacity(showLang ? 0 : 1)
             .animation(.spring(response: 0.4, dampingFraction: 0.9), value: showLang)
 
             if showLang {
-                languagePanel
+                languageContent
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(5)
             }
         }
@@ -78,6 +80,7 @@ struct SettingsView: View {
                 title: model.tr("Ngôn ngữ", "Language"),
                 subtitle: model.language == "en" ? "English" : "Tiếng Việt") {
                 showLang = true
+                detent = .height(300)
             }
             divider
             row(icon: "trash",
@@ -140,48 +143,29 @@ struct SettingsView: View {
             .padding(.leading, 66)
     }
 
-    // MARK: language panel (slides up inside the sheet)
+    // MARK: language content (the sheet itself becomes the picker)
 
-    private var languagePanel: some View {
-        ZStack(alignment: .bottom) {
-            Color.black.opacity(0.45)
-                .ignoresSafeArea()
-                .transition(.opacity)
-                .onTapGesture {
-                    showLang = false
-                }
-            VStack(spacing: 10) {
-                Capsule()
-                    .fill(Color.white.opacity(0.25))
-                    .frame(width: 36, height: 5)
-                    .padding(.top, 10)
-                Text(model.tr("Chọn ngôn ngữ", "Choose language"))
-                    .font(.headline.weight(.heavy))
-                    .foregroundColor(.white)
-                    .padding(.bottom, 4)
-                langOption("vi", "Tiếng Việt")
-                langOption("en", "English")
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-            .frame(maxWidth: .infinity)
-            .background(Theme.cardHi)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Theme.borderHi, lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
-            .padding(.horizontal, 10)
-            .padding(.bottom, 10)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+    private var languageContent: some View {
+        VStack(spacing: 10) {
+            Text(model.tr("Chọn ngôn ngữ", "Choose language"))
+                .font(.headline.weight(.heavy))
+                .foregroundColor(.white)
+                .padding(.top, 26)
+                .padding(.bottom, 6)
+            langOption("vi", "Tiếng Việt")
+            langOption("en", "English")
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Theme.background)
     }
 
     private func langOption(_ code: String, _ title: String) -> some View {
         Button {
             model.setLanguage(code)
             showLang = false
+            detent = .fraction(0.90)
         } label: {
             HStack(spacing: 12) {
                 Text(title)

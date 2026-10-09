@@ -7,6 +7,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var path: [GameTarget] = []
     @State private var showSettings = false
+    @State private var settingsDetent: PresentationDetent = .fraction(0.90)
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -24,9 +25,9 @@ struct ContentView: View {
         }
         .tint(.white)
         .sheet(isPresented: $showSettings) {
-            SettingsView()
+            SettingsView(detent: $settingsDetent)
                 .presentationDragIndicator(.visible)
-                .presentationDetents([.fraction(0.90)])
+                .presentationDetents([.fraction(0.90), .height(300)], selection: $settingsDetent)
         }
         .onAppear { model.bootstrap() }
         .onChange(of: scenePhase) { phase in
