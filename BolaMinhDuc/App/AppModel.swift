@@ -31,6 +31,13 @@ final class AppModel: ObservableObject {
     /// "vi" or "en" -- in-app language
     @Published var language: String = UserDefaults.standard.string(forKey: "bola_lang") ?? "vi"
 
+    // MARK: license key bar (DEMO — real key system later)
+
+    /// masked key name shown on the home key bar (demo placeholder)
+    @Published var keyMaskedName: String = "BOLA-••••-9C41"
+    /// hours left on the key (demo placeholder)
+    @Published var keyHoursLeft: Int = 72
+
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
     private var cancelRequested = false
 

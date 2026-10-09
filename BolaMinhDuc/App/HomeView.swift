@@ -29,6 +29,7 @@ struct HomeView: View {
                 .padding(.bottom, 28)
             }
         }
+        .safeAreaInset(edge: .bottom) { keyBar }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             appear = true
@@ -244,5 +245,62 @@ struct HomeView: View {
         .padding(.top, 2)
         .opacity(appear ? 1 : 0)
         .animation(.easeOut(duration: 0.4).delay(0.3), value: appear)
+    }
+
+    // MARK: key bar (DEMO — real key system later)
+
+    private var keyBar: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Theme.cardHi)
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(Theme.border, lineWidth: 1)
+                    )
+                Image(systemName: "key.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.tr("KEY", "KEY"))
+                    .font(.system(size: 8, weight: .bold))
+                    .tracking(0.8)
+                    .foregroundColor(Theme.dimmer)
+                Text(model.keyMaskedName)
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            Spacer()
+            HStack(spacing: 5) {
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 10, weight: .bold))
+                Text(model.tr("\(model.keyHoursLeft) giờ", "\(model.keyHoursLeft)h"))
+                    .font(.system(size: 12, weight: .bold))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 7)
+            .background(Theme.cardHi)
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Theme.border, lineWidth: 1))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Theme.border, lineWidth: 1)
+        )
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 8)
+        .opacity(appear ? 1 : 0)
+        .offset(y: appear ? 0 : 14)
+        .animation(.easeOut(duration: 0.4).delay(0.25), value: appear)
     }
 }
