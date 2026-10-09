@@ -502,6 +502,11 @@ final class AppModel: ObservableObject {
         pairingBusy = true
         pairingPin = nil
         append("pairing: bắt đầu tạo trên máy…")
+        if !PairingHost.vpnLoopbackPresent() {
+            append("pairing: chưa thấy địa chỉ VPN 10.7.0.1")
+            showToast(tr("Chưa thấy LocalDevVPN — bật VPN rồi thử lại nếu treo",
+                         "LocalDevVPN not detected — enable the VPN if it hangs"))
+        }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = PairingHost.generate(
                 progress: { line in
@@ -531,5 +536,10 @@ final class AppModel: ObservableObject {
                 self.refreshPairing()
             }
         }
+    }
+
+    /// Stops a pending on-device pairing attempt.
+    func cancelPairing() {
+        PairingHost.cancel()
     }
 }

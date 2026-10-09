@@ -1,12 +1,20 @@
 import Foundation
+import Darwin
 
 /// On-device pairing via the vendored idevice FFI (pairable-host flow).
-/// Needs LocalDevVPN so the device can reach the advertised Bonjour service.
+/// Needs LocalDevVPN (the device reaches the host via the 10.7.0.1 loopback).
 enum PairingHost {
 
     final class PinBox {
         var onPin: ((String) -> Void)?
     }
+
+    final class StateBox {
+        var cancel: OpaquePointer?
+        var timedOut = false
+    }
+
+    private static let state = StateBox()
 
     private static let pinCallback: PairableHostPinCb = { pin, context in
         guard let pin = pin, let context = context else { return }
@@ -17,16 +25,60 @@ enum PairingHost {
         }
     }
 
+    /// True when a LocalDevVPN-style loopback address (10.7.0.1) is up.
+    static func vpnLoopbackPresent() -> Bool {
+        var addrs: UnsafeMutablePointer<ifaddrs>? = nil
+        guard getifaddrs(&addrs) == 0, let first = addrs else { return false }
+        defer { freeifaddrs(addrs) }
+        var ptr: UnsafeMutablePointer<ifaddrs>? = first
+        while let cur = ptr {
+            let flags = Int32(cur.pointee.ifa_flags)
+            if (flags & IFF_UP) != 0, let sa = cur.pointee.ifa_addr, sa.pointee.sa_family == UInt8(AF_INET) {
+                var sin = sockaddr_in()
+                memcpy(&sin, sa, MemoryLayout<sockaddr_in>.size)
+                var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                var addr = sin.sin_addr
+                inet_ntop(AF_INET, &addr, &buf, socklen_t(INET_ADDRSTRLEN))
+                let ip = String(cString: buf)
+                if ip == "10.7.0.1" {
+                    return true
+                }
+            }
+            ptr = cur.pointee.ifa_next
+        }
+        return false
+    }
+
+    /// Stops a pending attempt (unblocks the FFI accept call).
+    static func cancel() {
+        if let c = state.cancel {
+            pairable_host_cancel_signal(c)
+        }
+    }
+
     static func generate(progress: @escaping (String) -> Void,
                          onPin: @escaping (String) -> Void) -> Result<String, PairError> {
         let box = PinBox()
         box.onPin = onPin
         let ctx = Unmanaged.passUnretained(box).toOpaque()
 
+        // Cancellation token, kept alive for the process lifetime: freeing it
+        // while the watchdog may still fire would risk a use-after-free.
+        let cancel = pairable_host_cancel_new()
+        state.cancel = cancel
+        state.timedOut = false
+
+        DispatchQueue.global().asyncAfter(deadline: .now() + 120) {
+            if let c = state.cancel {
+                state.timedOut = true
+                pairable_host_cancel_signal(c)
+            }
+        }
+
         var peer: UnsafeMutablePointer<RpPairingPeerDeviceC>? = nil
         var file: OpaquePointer? = nil
 
-        progress("bật LocalDevVPN rồi chờ máy kết nối…")
+        progress("đang chờ máy kết nối — nhớ bật LocalDevVPN…")
 
         let err: UnsafeMutablePointer<IdeviceFfiError>? = withExtendedLifetime(box) {
             pairable_host_accept_with_options(
@@ -36,7 +88,7 @@ enum PairingHost {
                 false,
                 pinCallback,
                 ctx,
-                nil,
+                cancel,
                 nil,
                 &peer,
                 &file
@@ -44,6 +96,7 @@ enum PairingHost {
         }
 
         defer {
+            state.cancel = nil
             if let file = file {
                 rp_pairing_file_free(file)
             }
@@ -53,7 +106,14 @@ enum PairingHost {
         }
 
         if let err = err {
-            return .failure(PairError(message: errorText(err)))
+            let text = errorText(err)
+            if state.timedOut {
+                return .failure(PairError(message: "không thấy máy kết nối — hãy bật LocalDevVPN rồi thử lại"))
+            }
+            if text.lowercased().contains("cancel") {
+                return .failure(PairError(message: "đã huỷ ghép đôi"))
+            }
+            return .failure(PairError(message: text))
         }
         guard let file = file else {
             return .failure(PairError(message: "ghép đôi xong nhưng không nhận được file"))

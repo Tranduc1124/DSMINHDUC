@@ -229,14 +229,19 @@ struct SettingsView: View {
                 }
                 .disabled(model.pairingBusy)
                 .opacity(model.pairingBusy ? 0.6 : 1)
-                Text(model.tr("Bật LocalDevVPN trước, rồi bấm “Tạo trên máy” và làm theo hướng dẫn trên máy.",
-                              "Turn on LocalDevVPN first, then tap “Generate on-device” and follow the on-screen prompts."))
+                Text(model.tr("Bật LocalDevVPN trước, rồi bấm “Tạo trên máy”. Treo lâu = chưa kết nối — bấm Hủy rồi thử lại.",
+                              "Turn on LocalDevVPN first, then tap “Generate on-device”. If it hangs, tap Cancel and retry."))
                     .font(.caption2)
                     .foregroundColor(Theme.dim)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 10) {
                     pillButton(model.tr("Làm mới", "Refresh"), primary: false) {
                         model.refreshPairing()
+                    }
+                    if model.pairingBusy {
+                        pillButton(model.tr("Hủy", "Cancel"), primary: false) {
+                            model.cancelPairing()
+                        }
                     }
                     if model.pairingValid {
                         pillButton(model.tr("Xoá", "Delete"), primary: false) {
