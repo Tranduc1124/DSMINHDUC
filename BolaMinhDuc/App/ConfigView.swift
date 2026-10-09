@@ -407,13 +407,6 @@ struct ConfigView: View {
 
     private var miscCard: some View {
         VStack(spacing: 0) {
-            toggleRowInline("dropcomp", "scope", model.tr("Đạn thẳng", "Straight bullets"),
-                            model.tr("Bù đạn rơi theo khoảng cách (khi bật Silent)",
-                                     "Compensate bullet drop by distance (with Silent)"))
-            Rectangle()
-                .fill(Theme.border)
-                .frame(height: 1)
-                .padding(.leading, 52)
             toggleRowInline("fastrun", "figure.run", model.tr("Chạy nhanh", "Fast run"),
                             model.tr("Tăng tốc chạy — rủi ro ban, cân nhắc",
                                      "Higher move speed — ban risk, use with care"))
