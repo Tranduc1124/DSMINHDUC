@@ -33,7 +33,8 @@ final class AppModel: ObservableObject {
     @Published var language: String = UserDefaults.standard.string(forKey: "bola_lang") ?? "vi"
 
     /// anti-ban: continuous background cleanup of the game's telemetry caches
-    @Published var antiban: Bool = true
+    /// (OFF by default - the user enables it explicitly)
+    @Published var antiban: Bool = false
 
     // MARK: license key bar (DEMO — real key system later)
 
@@ -496,6 +497,8 @@ extension AppModel {
         UserDefaults.standard.set(value, forKey: "bola_antiban")
         if value {
             startAntibanLoop()
+            showToast(tr("🛡️ Đã bật Anti-ban — tự dọn dấu vết liên tục (tắt sẽ tự gỡ patch)",
+                         "🛡️ Anti-ban on — keeps wiping traces (turning off auto-removes the patch)"))
             return
         }
         // Turning anti-ban OFF while the patch is installed = instant
