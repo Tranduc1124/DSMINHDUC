@@ -107,6 +107,9 @@ struct ConfigView: View {
                       model.tr("Hiện cả bot (AI)", "Show bots (AI) too"))
             toggleRow("count", "number", model.tr("Đếm Địch", "Enemy Count"),
                       model.tr("Số địch + bot ở trên màn hình", "Enemies + bots shown on screen"))
+            colorRow("box", "square.dashed", model.tr("Màu Box", "Box color"))
+            colorRow("line", "line.diagonal", model.tr("Màu Line", "Line color"))
+            colorRow("bone", "figure.walk", model.tr("Màu Bone", "Bone color"))
         case .aim:
             toggleRow("aim", "scope", "Aimbot",
                       model.tr("Khoá địch gần tâm ngắm nhất", "Lock the enemy nearest the crosshair"))
@@ -141,6 +144,32 @@ struct ConfigView: View {
             ))
             .labelsHidden()
             .tint(.white)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Theme.border, lineWidth: 1)
+        )
+    }
+
+    private func colorRow(_ key: String, _ icon: String, _ title: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 26)
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.white)
+            Spacer()
+            ColorPicker("", selection: Binding(
+                get: { model.featureColor(key) },
+                set: { model.setFeatureColor(key, $0) }
+            ), supportsOpacity: false)
+            .labelsHidden()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)

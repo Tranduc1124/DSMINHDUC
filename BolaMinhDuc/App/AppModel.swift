@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import SwiftUI
+import UIKit
 
 final class AppModel: ObservableObject {
     enum Phase: Equatable {
@@ -79,6 +81,43 @@ final class AppModel: ObservableObject {
         writeConfig()
     }
 
+    // MARK: - ESP colors (box / line / bone)
+
+    private func colorDefaults() -> [String: [Double]] {
+        ["box": [1.0, 0.15, 0.15], "line": [1.0, 0.15, 0.15], "bone": [1.0, 0.15, 0.15]]
+    }
+
+    func featureRGB(_ key: String) -> (Double, Double, Double) {
+        let d = (UserDefaults.standard.array(forKey: "bola_col_" + key) as? [Double])
+            ?? colorDefaults()[key] ?? [1.0, 0.15, 0.15]
+        return (d[0], d[1], d[2])
+    }
+
+    func featureColor(_ key: String) -> Color {
+        let (r, g, b) = featureRGB(key)
+        return Color(red: r, green: g, blue: b)
+    }
+
+    func setFeatureColor(_ key: String, _ color: Color) {
+        let ui = UIColor(color)
+        var r: CGFloat = 1
+        var g: CGFloat = 0.15
+        var b: CGFloat = 0.15
+        var a: CGFloat = 1
+        ui.getRed(&r, green: &g, blue: &b, alpha: &a)
+        UserDefaults.standard.set([Double(r), Double(g), Double(b)], forKey: "bola_col_" + key)
+        writeConfig()
+    }
+
+    private func pack565(_ key: String) -> (UInt8, UInt8) {
+        let (r, g, b) = featureRGB(key)
+        let r5 = UInt16(max(0, min(31, Int(r * 31 + 0.5))))
+        let g6 = UInt16(max(0, min(63, Int(g * 63 + 0.5))))
+        let b5 = UInt16(max(0, min(31, Int(b * 31 + 0.5))))
+        let v = (r5 << 11) | (g6 << 5) | b5
+        return (UInt8(v & 0xFF), UInt8((v >> 8) & 0xFF))
+    }
+
     func setLanguage(_ code: String) {
         language = code
         UserDefaults.standard.set(code, forKey: "bola_lang")
@@ -94,6 +133,7 @@ final class AppModel: ObservableObject {
     // payload: "BOLA" | ver=1 | flags | - | 0...
     // flags bits: 0 box, 1 line, 2 hp, 3 name, 4 dist, 5 bot, 7 count.
     // byte 7: bit0 aim, bit1 skeleton bones; byte 8: aim bone (0 head, 1 neck, 2 chest).
+    // bytes 9..14: RGB565 box / line / bone colors (0 = default red).
     // The payload is XOR-ed with a per-index keystream, so a hand-edited file
     // without a matching checksum is ignored by the running patch.
 
@@ -136,6 +176,15 @@ final class AppModel: ObservableObject {
         if flag("bone") { extra |= 2 }
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
+        let (c9, c10) = pack565("box")
+        let (c11, c12) = pack565("line")
+        let (c13, c14) = pack565("bone")
+        payload[9] = c9
+        payload[10] = c10
+        payload[11] = c11
+        payload[12] = c12
+        payload[13] = c13
+        payload[14] = c14
         for i in 0..<16 {
             payload[i] ^= UInt8(truncatingIfNeeded: (0x5A + i * 0x37) ^ (i << 4))
         }
