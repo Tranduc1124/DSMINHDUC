@@ -10,13 +10,13 @@ import Darwin
 /// No computer required.
 enum PairingGenerator {
 
-    static func generate(progress: @escaping (String) -> Void) -> Result<String, String> {
+    static func generate(progress: @escaping (String) -> Void) -> Result<String, PairError> {
         do {
             return .success(try generateThrowing(progress: progress))
         } catch let e as PairError {
-            return .failure(e.message)
+            return .failure(e)
         } catch {
-            return .failure("lỗi không xác định: \(error.localizedDescription)")
+            return .failure(PairError(message: "lỗi không xác định: \(error.localizedDescription)"))
         }
     }
 

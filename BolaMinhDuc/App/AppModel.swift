@@ -511,9 +511,9 @@ final class AppModel: ObservableObject {
                 case .success:
                     self.append("pairing: tạo xong")
                     self.showToast(self.tr("Đã tạo file ghép đôi", "Pairing file created"))
-                case .failure(let msg):
-                    self.append("pairing: lỗi — " + msg)
-                    self.showToast(msg)
+                case .failure(let err):
+                    self.append("pairing: lỗi — " + err.message)
+                    self.showToast(err.message)
                 }
                 self.refreshPairing()
             }
