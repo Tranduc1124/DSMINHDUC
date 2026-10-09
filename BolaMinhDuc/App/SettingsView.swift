@@ -6,6 +6,7 @@ struct SettingsView: View {
     var openLanguage: () -> Void
 
     @State private var appear = false
+    @State private var showPairing = false
 
     var body: some View {
         ZStack {
@@ -27,9 +28,17 @@ struct SettingsView: View {
                 .opacity(appear ? 1 : 0)
                 .offset(y: appear ? 0 : 14)
                 .animation(.easeOut(duration: 0.35), value: appear)
-                .onAppear { appear = true }
+                .onAppear {
+                    appear = true
+                    model.refreshPairing()
+                }
+            }
+            if showPairing {
+                pairingPanel
+                    .zIndex(6)
             }
         }
+        .animation(.spring(response: 0.42, dampingFraction: 0.9), value: showPairing)
         .toastOverlay($model.toastText)
     }
 
@@ -67,6 +76,15 @@ struct SettingsView: View {
                 title: model.tr("Ngôn ngữ", "Language"),
                 subtitle: model.language == "en" ? "English" : "Tiếng Việt") {
                 openLanguage()
+            }
+            divider
+            row(icon: "link.circle.fill",
+                title: model.tr("Ghép đôi thiết bị", "Device pairing"),
+                subtitle: model.pairingValid
+                    ? model.tr("Đã có file ghép đôi", "Pairing file found")
+                    : model.tr("Chưa có file ghép đôi", "No pairing file")) {
+                model.refreshPairing()
+                showPairing = true
             }
             divider
             row(icon: "trash",
@@ -127,6 +145,101 @@ struct SettingsView: View {
             .fill(Theme.border)
             .frame(height: 1)
             .padding(.leading, 66)
+    }
+
+    // MARK: pairing panel
+
+    private var pairingPanel: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.45)
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .onTapGesture {
+                    showPairing = false
+                }
+            VStack(spacing: 12) {
+                Capsule()
+                    .fill(Color.white.opacity(0.25))
+                    .frame(width: 36, height: 5)
+                    .padding(.top, 10)
+                HStack(spacing: 10) {
+                    Image(systemName: model.pairingValid ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(model.pairingValid ? .green : .yellow)
+                    Text(model.tr("Ghép đôi thiết bị", "Device pairing"))
+                        .font(.headline.weight(.heavy))
+                        .foregroundColor(.white)
+                    Spacer()
+                }
+                if model.pairingValid {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(model.pairingName ?? "")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        if let pid = model.pairingIdentifier {
+                            Text(pid)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(Theme.dim)
+                                .lineLimit(2)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Theme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                Text(model.tr("Chép file ghép đôi (.mobiledevicepairing) từ máy tính vào thư mục BOLAMINHDUC trong Files, rồi bấm Làm mới.",
+                              "Copy the pairing file (.mobiledevicepairing) from your computer into the BOLAMINHDUC folder in Files, then tap Refresh."))
+                    .font(.caption2)
+                    .foregroundColor(Theme.dim)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 10) {
+                    pillButton(model.tr("Làm mới", "Refresh"), primary: false) {
+                        model.refreshPairing()
+                    }
+                    if model.pairingValid {
+                        pillButton(model.tr("Xoá", "Delete"), primary: false) {
+                            model.removePairingFile()
+                        }
+                    }
+                    pillButton("OK", primary: true) {
+                        showPairing = false
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+            .frame(maxWidth: .infinity)
+            .background(Theme.cardHi)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Theme.borderHi, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    private func pillButton(_ title: String, primary: Bool,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(primary ? .black : .white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .background(primary ? Color.white : Theme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(primary ? Color.clear : Theme.borderHi, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 
 }
