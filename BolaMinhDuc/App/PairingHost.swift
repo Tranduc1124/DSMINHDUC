@@ -5,33 +5,84 @@ import Darwin
 /// Bonjour (this also triggers the Local Network permission prompt), then runs
 /// `tunnel_create_rppairing` against the discovered address with a freshly
 /// generated pairing file. Falls back to 10.7.0.1:49152 (LocalDevVPN) if the
-/// Bonjour browse finds nothing.
+/// Bonjour browse finds nothing. If the device shows a pairing code, the pin
+/// callback asks the UI for it (pin relay).
 enum PairingHost {
+
+    // MARK: pin relay (the device shows a code; the user types it in-app)
+
+    final class PinEntryBox {
+        let sem = DispatchSemaphore(value: 0)
+        var pin: String?
+    }
+
+    private static let pinEntry = PinEntryBox()
+    private static let pinBuf: UnsafeMutablePointer<CChar> = {
+        let p = UnsafeMutablePointer<CChar>.allocate(capacity: 16)
+        p.initialize(repeating: 0, count: 16)
+        return p
+    }()
+
+    static var onNeedPin: (() -> Void)?
+
+    private static let pinEntryCallback: @convention(c) (UnsafeMutableRawPointer?) -> UnsafePointer<CChar>? = { _ in
+        if let onNeed = PairingHost.onNeedPin {
+            DispatchQueue.main.async { onNeed() }
+        }
+        pinEntry.sem.wait()
+        let code = pinEntry.pin ?? ""
+        pinEntry.pin = nil
+        let utf8 = Array(code.utf8.prefix(15))
+        for i in 0..<16 {
+            pinBuf[i] = 0
+        }
+        for (i, b) in utf8.enumerated() {
+            pinBuf[i] = CChar(bitPattern: b)
+        }
+        return UnsafePointer(pinBuf)
+    }
+
+    /// Called from the UI with the code shown on the device screen.
+    static func submitPin(_ pin: String) {
+        pinEntry.pin = pin
+        pinEntry.sem.signal()
+    }
+
+    /// Fallback escape: unblocks a waiting pin prompt (empty code → pairing fails).
+    static func cancel() {
+        pinEntry.pin = ""
+        pinEntry.sem.signal()
+    }
 
     // MARK: Bonjour discovery of the device's own remotepairing service
 
-    final class RPBrowser: NSObject, NSNetServiceBrowserDelegate, NSNetServiceDelegate {
-        private let sem = DispatchSemaphore(value: 0)
-        private var browser: NSNetServiceBrowser?
+    final class RPBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDelegate {
         private var resolved: [(String, Int)] = []
-        private var pending: Set<NSNetService> = []
+        private var browser: NetServiceBrowser?
 
+        /// Runs the browse on a dedicated thread with its own run loop
+        /// (generate() is called from a background queue without one).
         func discover(timeout: TimeInterval) -> (String, Int)? {
-            let b = NSNetServiceBrowser()
-            b.delegate = self
-            b.searchForServices(ofType: "_remotepairing._tcp.", inDomain: "local.")
-            browser = b
-            let deadline = Date().addingTimeInterval(timeout)
-            while Date() < deadline {
-                if sem.wait(timeout: .now() + 0.5) == .success {
-                    if let best = best() {
-                        b.stop()
-                        return best
-                    }
+            var out: (String, Int)? = nil
+            let done = DispatchSemaphore(value: 0)
+            let t = Thread { [weak self] in
+                guard let self = self else { done.signal(); return }
+                let b = NetServiceBrowser()
+                b.delegate = self
+                b.searchForServices(ofType: "_remotepairing._tcp.", inDomain: "local.")
+                self.browser = b
+                let deadline = Date().addingTimeInterval(timeout)
+                while Date() < deadline {
+                    RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.25))
+                    if self.resolved.contains(where: { $0.0.hasPrefix("10.7.") }) { break }
                 }
+                b.stop()
+                out = self.best()
+                done.signal()
             }
-            b.stop()
-            return best()
+            t.start()
+            _ = done.wait(timeout: .now() + timeout + 4)
+            return out
         }
 
         private func best() -> (String, Int)? {
@@ -41,29 +92,28 @@ enum PairingHost {
             return resolved.first
         }
 
-        func netServiceBrowser(_ browser: NSNetServiceBrowser, didFind service: NSNetService, moreComing: Bool) {
-            if pending.contains(service) { return }
-            pending.insert(service)
+        func netServiceBrowser(_ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
             service.delegate = self
             service.resolve(withTimeout: 5)
         }
 
-        func netServiceDidResolveAddress(_ sender: NSNetService) {
+        func netServiceDidResolveAddress(_ sender: NetService) {
             let port = sender.port
             guard port > 0, port < 65536 else { return }
             if let addresses = sender.addresses {
                 for data in addresses {
                     if let ip = RPBrowser.ipString(from: data) {
-                        resolved.append((ip, port))
-                        sem.signal()
+                        if !resolved.contains(where: { $0.0 == ip && $0.1 == port }) {
+                            resolved.append((ip, port))
+                        }
                         return
                     }
                 }
             }
         }
 
-        func netService(_ sender: NSNetService, didNotResolve errorDict: [String: NSNumber]) {
-            pending.remove(sender)
+        func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
+            // ignore; we keep waiting for other services until timeout
         }
 
         static func ipString(from data: Data) -> String? {
@@ -131,7 +181,7 @@ enum PairingHost {
         progress("đang tìm dịch vụ ghép đôi (Bonjour)…")
         var targetIP = "10.7.0.1"
         var targetPort: UInt16 = 49152
-        if let found = RPBrowser().discover(timeout: 8) {
+        if let found = RPBrowser().discover(timeout: 6) {
             targetIP = found.0
             if found.1 > 0 && found.1 < 65536 {
                 targetPort = UInt16(found.1)
@@ -161,7 +211,7 @@ enum PairingHost {
                     socklen_t(MemoryLayout<sockaddr_in>.stride),
                     "BolaMinhDuc",
                     pairFile,
-                    nil,
+                    pinEntryCallback,
                     nil,
                     &adapter,
                     &handshake

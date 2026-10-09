@@ -44,6 +44,8 @@ targets:
         LSApplicationQueriesSchemes:
           - freefire
         NSLocalNetworkUsageDescription: "Cần cho tính năng ghép đôi thiết bị (pairing file)."
+        NSBonjourServices:
+          - "_remotepairing._tcp"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bolaminhduc.bolapatch
