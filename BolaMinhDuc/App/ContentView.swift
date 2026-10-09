@@ -34,8 +34,12 @@ struct ContentView: View {
             .presentationDetents([.fraction(0.90)])
         }
         .overlay { languageOverlay }
-        .onAppear { model.bootstrap() }
+        .onAppear {
+            model.bootstrap()
+            BackgroundAudio.shared.ensureRunning()
+        }
         .onChange(of: scenePhase) { phase in
+            BackgroundAudio.shared.ensureRunning()
             if phase == .active {
                 model.bootstrap()
                 model.refreshInstalled()
