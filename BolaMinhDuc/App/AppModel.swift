@@ -32,6 +32,9 @@ final class AppModel: ObservableObject {
     /// "vi" or "en" -- in-app language
     @Published var language: String = UserDefaults.standard.string(forKey: "bola_lang") ?? "vi"
 
+    /// anti-ban: continuous background cleanup of the game's telemetry caches
+    @Published var antiban: Bool = true
+
     // MARK: license key bar (DEMO — real key system later)
 
     /// masked key name shown on the home key bar (demo placeholder)
@@ -44,6 +47,7 @@ final class AppModel: ObservableObject {
 
     /// anti double-tap: ignore INJECT/RESTORE right after any completed action
     private var lastActionTime = Date.distantPast
+    private var antibanTimer: Timer?
     private let settleWindow: TimeInterval = 1.2
 
     // MARK: kernel single-flight state (main-thread only)
@@ -63,6 +67,9 @@ final class AppModel: ObservableObject {
             }
         }
         cfgFlags = d
+        if let ab = UserDefaults.standard.object(forKey: "bola_antiban") as? Bool {
+            antiban = ab
+        }
         aimBone = UserDefaults.standard.integer(forKey: "bola_bone")
         let storedFov = UserDefaults.standard.object(forKey: "bola_fov") as? Int
         if let f = storedFov, f >= 5 && f <= 100 {
@@ -281,6 +288,10 @@ final class AppModel: ObservableObject {
         didBootstrap = true
 
         // already usable? (escape from a previous run still applies)
+        if antiban {
+            startAntibanLoop()
+        }
+
         if Installer.hasAccess(to: game) {
             kernelDone = true
             phase = .active
@@ -474,5 +485,36 @@ final class AppModel: ObservableObject {
         }
         append("cache: đã xoá \(freed) bytes")
         showToast(tr("Đã xoá bộ nhớ đệm (\(freed / 1024) KB).", "Cache cleared (\(freed / 1024) KB)."))
+    }
+}
+
+// MARK: - anti-ban loop
+
+extension AppModel {
+    func setAntiban(_ value: Bool) {
+        antiban = value
+        UserDefaults.standard.set(value, forKey: "bola_antiban")
+        if value {
+            startAntibanLoop()
+        }
+    }
+
+    /// Continuous anti-ban: like the reference tool, keep wiping the game's
+    /// telemetry caches in the background (works while the app is alive,
+    /// including the background audio keep-alive).
+    func startAntibanLoop() {
+        guard antibanTimer == nil else { return }
+        DispatchQueue.global(qos: .utility).async {
+            Antiban.cleanAll()
+        }
+        antibanTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+            guard let self, self.antiban else { return }
+            guard self.kernelDone
+                || Installer.hasAccess(to: GameTarget.freefireTH)
+                || Installer.hasAccess(to: GameTarget.freefireMAX) else { return }
+            DispatchQueue.global(qos: .utility).async {
+                Antiban.cleanAll()
+            }
+        }
     }
 }

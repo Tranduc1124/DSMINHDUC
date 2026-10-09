@@ -72,6 +72,8 @@ struct SettingsView: View {
                 openLanguage()
             }
             divider
+            antibanRow
+            divider
             row(icon: "trash",
                 title: model.tr("Xoá Bộ Nhớ Đệm", "Clear Cache"),
                 subtitle: model.tr("File tạm trong app", "Temporary app files")) {
@@ -90,6 +92,38 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(Theme.border, lineWidth: 1)
         )
+    }
+
+    private var antibanRow: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Theme.cardHi)
+                    .frame(width: 38, height: 38)
+                Image(systemName: "shield.lefthalf.filled")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.tr("Anti-ban", "Anti-ban"))
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                Text(model.tr("Tự dọn dấu vết liên tục khi chạy ngầm",
+                              "Keeps wiping traces in the background"))
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.dim)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Toggle("", isOn: Binding(
+                get: { model.antiban },
+                set: { model.setAntiban($0) }
+            ))
+            .labelsHidden()
+            .tint(.white)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
     }
 
     private func row(icon: String, emoji: String? = nil, title: String, subtitle: String,
