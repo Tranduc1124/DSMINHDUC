@@ -7,4 +7,5 @@
 #import "Exploit/sandbox_escape.h"
 #import "Exploit/krw.h"
 #import "Exploit/kutils.h"
+#import "Exploit/mha.h"
 #import "App/GameLauncher.h"

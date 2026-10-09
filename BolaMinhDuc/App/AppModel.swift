@@ -36,6 +36,9 @@ final class AppModel: ObservableObject {
     /// (OFF by default - the user enables it explicitly)
     @Published var antiban: Bool = false
 
+    /// true when MobileHouseArrest granted container access (no kernel needed)
+    @Published var mhaActive: Bool = false
+
     // MARK: license key bar (DEMO — real key system later)
 
     /// masked key name shown on the home key bar (demo placeholder)
@@ -293,6 +296,11 @@ final class AppModel: ObservableObject {
             startAntibanLoop()
         }
 
+        // MobileHouseArrest fast path: when the app was signed with the MHA
+        // identity this grants container access with no kernel exploit and
+        // works on iOS 16 (where the kernel offsets are missing).
+        attemptMHA()
+
         if Installer.hasAccess(to: game) {
             kernelDone = true
             phase = .active
@@ -492,6 +500,19 @@ final class AppModel: ObservableObject {
 // MARK: - anti-ban loop
 
 extension AppModel {
+    /// Tries to open both game containers through MobileHouseArrest.
+    private func attemptMHA() {
+        let th = mha_open_container(GameTarget.freefireTH.rawValue)
+        let mx = mha_open_container(GameTarget.freefireMAX.rawValue)
+        if th >= 0 || mx >= 0 {
+            mhaActive = true
+            append("mha: đã mở container qua MobileHouseArrest — bỏ qua kernel")
+        } else {
+            mhaActive = false
+            append("mha: không khả dụng (mã \(th)/\(mx)) — dùng kernel exploit")
+        }
+    }
+
     func setAntiban(_ value: Bool) {
         antiban = value
         UserDefaults.standard.set(value, forKey: "bola_antiban")

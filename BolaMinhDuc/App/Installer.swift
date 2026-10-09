@@ -90,6 +90,13 @@ enum Installer {
 
     /// nil when the container cannot be read (not activated / game missing).
     static func containerPath(for bundleID: String) -> String? {
+        // MobileHouseArrest fast path: when the app was signed with the MHA
+        // identity, the container path comes straight from ContainerManager
+        // and the activated sandbox extension grants read/write - no kernel
+        // exploit involved (works on iOS 16 too).
+        if let mha = mha_path_for_bundle(bundleID) {
+            return String(cString: mha)
+        }
         let fm = FileManager.default
         guard let entries = try? fm.contentsOfDirectory(atPath: applicationRoot) else {
             return nil

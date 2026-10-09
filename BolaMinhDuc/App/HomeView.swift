@@ -105,7 +105,7 @@ struct HomeView: View {
                 statDivider
                 heroStat(icon: "checkmark.shield.fill",
                          title: model.tr("TƯƠNG THÍCH", "SUPPORT"),
-                         value: ExploitRunner.isSupported() ? model.tr("Tốt", "Good") : model.tr("Hạn chế", "Limited"))
+                         value: (model.mhaActive || ExploitRunner.isSupported()) ? model.tr("Tốt", "Good") : model.tr("Hạn chế", "Limited"))
             }
             .padding(.vertical, 11)
         }

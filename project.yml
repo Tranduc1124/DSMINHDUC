@@ -47,7 +47,10 @@ targets:
           - freefire
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.bolaminhduc.bolapatch
+        # MobileHouseArrest path needs BOTH identifiers to be exactly
+        # com.apple.mobile.MobileHouseArrest (MobileContainerManager trusts the
+        # CodeDirectory identifier). The signer must preserve this identifier.
+        PRODUCT_BUNDLE_IDENTIFIER: com.apple.mobile.MobileHouseArrest
         PRODUCT_NAME: BolaMinhDuc
         SWIFT_OBJC_BRIDGING_HEADER: BolaMinhDuc/BolaMinhDuc-Bridging-Header.h
         OTHER_LDFLAGS: "-lz -lc++"
