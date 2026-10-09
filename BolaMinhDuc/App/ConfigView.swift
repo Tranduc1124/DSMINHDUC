@@ -115,6 +115,8 @@ struct ConfigView: View {
                       model.tr("Hiện cả bot (AI)", "Show bots (AI) too"))
             toggleRow("count", "number", model.tr("Đếm Địch", "Enemy Count"),
                       model.tr("Số địch + bot ở trên màn hình", "Enemies + bots shown on screen"))
+            toggleRow("showram", "gauge", model.tr("Theo dõi RAM", "RAM monitor"),
+                      model.tr("Hiện RAM/Heap trên màn hình", "Show RAM / heap on screen"))
         case .aim:
             aimCard
         case .misc:
