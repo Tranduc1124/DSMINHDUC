@@ -86,9 +86,10 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// The one patch bundled in the app — custom patches are not accepted.
+    /// The patch to inject: the newest one available (OTA download from the
+    /// repo when present, otherwise the payload bundled in the app).
     var bundledPatch: PatchFile? {
-        PatchLibrary.bundled()
+        PatchLibrary.latest()
     }
 
     // MARK: - feature flags
@@ -313,6 +314,10 @@ final class AppModel: ObservableObject {
             startAntibanLoop()
         }
 
+        // OTA patch: silently fetch the newest bytes from the repo so patch
+        // fixes apply without reinstalling the app.
+        refreshPatchRemote()
+
         // MobileHouseArrest fast path: when the app was signed with the MHA
         // identity this grants container access with no kernel exploit and
         // works on iOS 16 (where the kernel offsets are missing).
@@ -517,6 +522,20 @@ final class AppModel: ObservableObject {
 // MARK: - anti-ban loop
 
 extension AppModel {
+    /// OTA patch refresh: downloads the newest bytes from the GitHub repo.
+    /// On success the next INJECT uses them; on any failure the bundled
+    /// payload is used as before.
+    func refreshPatchRemote() {
+        PatchLibrary.refreshRemote { [weak self] n in
+            guard let self else { return }
+            if n > 0 {
+                self.append("patch: đã tải patch mới từ GitHub (\(n) bytes)")
+            } else {
+                self.append("patch: dùng bản trong app (không tải được OTA)")
+            }
+        }
+    }
+
     /// Tries to open both game containers through MobileHouseArrest.
     private func attemptMHA() {
         let th = mha_open_container(GameTarget.freefireTH.rawValue)
