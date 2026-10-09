@@ -91,12 +91,12 @@ struct ConfigView: View {
     private var tabContent: some View {
         switch tab {
         case .esp:
-            toggleRow("box", "square.dashed", "Box",
-                      model.tr("Khung quanh người & bot", "Box around players & bots"))
-            toggleRow("line", "line.diagonal", "Line",
-                      model.tr("Đường kẻ từ tâm ngắm", "Line from the crosshair"))
-            toggleRow("bone", "figure.walk", "Bone",
-                      model.tr("Khung xương người (skeleton)", "Player skeleton"))
+            colorFeatureCard("box", "square.dashed", "Box",
+                             model.tr("Khung quanh người & bot", "Box around players & bots"))
+            colorFeatureCard("line", "line.diagonal", "Line",
+                             model.tr("Đường kẻ từ tâm ngắm", "Line from the crosshair"))
+            colorFeatureCard("bone", "figure.walk", "Bone",
+                             model.tr("Khung xương người (skeleton)", "Player skeleton"))
             toggleRow("hp", "heart.fill", model.tr("Máu", "Health"),
                       model.tr("Thanh HP cho người & bot", "HP bar for players & bots"))
             toggleRow("name", "textformat", model.tr("Tên", "Name"),
@@ -107,9 +107,6 @@ struct ConfigView: View {
                       model.tr("Hiện cả bot (AI)", "Show bots (AI) too"))
             toggleRow("count", "number", model.tr("Đếm Địch", "Enemy Count"),
                       model.tr("Số địch + bot ở trên màn hình", "Enemies + bots shown on screen"))
-            colorRow("box", "square.dashed", model.tr("Màu Box", "Box color"))
-            colorRow("line", "line.diagonal", model.tr("Màu Line", "Line color"))
-            colorRow("bone", "figure.walk", model.tr("Màu Bone", "Bone color"))
         case .aim:
             toggleRow("aim", "scope", "Aimbot",
                       model.tr("Khoá địch gần tâm ngắm nhất", "Lock the enemy nearest the crosshair"))
@@ -155,30 +152,100 @@ struct ConfigView: View {
         )
     }
 
-    private func colorRow(_ key: String, _ icon: String, _ title: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 26)
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
-            Spacer()
-            ColorPicker("", selection: Binding(
-                get: { model.featureColor(key) },
-                set: { model.setFeatureColor(key, $0) }
-            ), supportsOpacity: false)
-            .labelsHidden()
+    private func colorFeatureCard(_ key: String, _ icon: String,
+                                  _ title: String, _ subtitle: String) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundColor(Theme.dimmer)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { model.flag(key) },
+                    set: { model.setFlag(key, $0) }
+                ))
+                .labelsHidden()
+                .tint(.white)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+
+            if model.flag(key) {
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Theme.border)
+                        .frame(height: 1)
+                        .padding(.leading, 52)
+                    colorPalette(key)
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
         .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Theme.border, lineWidth: 1)
         )
+        .animation(.spring(response: 0.38, dampingFraction: 0.86), value: model.flag(key))
+    }
+
+    private func colorPalette(_ colorKey: String) -> some View {
+        let (cr, cg, cb) = model.featureRGB(colorKey)
+        let presets: [(Double, Double, Double)] = [
+            (1.00, 0.15, 0.15),
+            (1.00, 0.55, 0.10),
+            (1.00, 0.85, 0.10),
+            (0.55, 1.00, 0.35),
+            (0.10, 1.00, 0.10),
+            (0.10, 0.90, 1.00),
+            (0.25, 0.50, 1.00),
+            (0.65, 0.30, 1.00),
+            (1.00, 0.30, 0.65),
+            (1.00, 1.00, 1.00)
+        ]
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(model.tr("Màu hiển thị", "Display color"))
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(Theme.dimmer)
+                .tracking(0.8)
+            HStack(spacing: 7) {
+                ForEach(0..<presets.count, id: \.self) { i in
+                    let p = presets[i]
+                    let sel = abs(cr - p.0) < 0.02 && abs(cg - p.1) < 0.02 && abs(cb - p.2) < 0.02
+                    Button {
+                        model.setFeatureColor(colorKey, Color(red: p.0, green: p.1, blue: p.2))
+                    } label: {
+                        Circle()
+                            .fill(Color(red: p.0, green: p.1, blue: p.2))
+                            .frame(width: 22, height: 22)
+                            .overlay(
+                                Circle().stroke(Theme.borderHi, lineWidth: 1)
+                            )
+                            .overlay(
+                                Circle().stroke(Color.white, lineWidth: sel ? 2.5 : 0)
+                            )
+                            .scaleEffect(sel ? 1.12 : 1)
+                            .animation(.easeOut(duration: 0.15), value: sel)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
     }
 
     private var boneRow: some View {
