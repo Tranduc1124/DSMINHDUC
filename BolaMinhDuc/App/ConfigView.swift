@@ -7,6 +7,7 @@ struct ConfigView: View {
     var goBack: () -> Void
 
     @State private var tab: FeatureTab = .esp
+    @State private var colorPickKey: String? = nil
 
     var body: some View {
         ZStack {
@@ -27,7 +28,13 @@ struct ConfigView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
+
+            if let ck = colorPickKey {
+                colorPickerOverlay(ck)
+                    .zIndex(10)
+            }
         }
+        .animation(.spring(response: 0.42, dampingFraction: 0.9), value: colorPickKey)
         .toolbar(.hidden, for: .navigationBar)
     }
 
@@ -186,7 +193,31 @@ struct ConfigView: View {
                         .fill(Theme.border)
                         .frame(height: 1)
                         .padding(.leading, 52)
-                    colorPalette(key)
+                    Button {
+                        colorPickKey = key
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "paintpalette.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 26)
+                            Text(model.tr("Màu hiển thị", "Display color"))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(Theme.dim)
+                            Spacer()
+                            Circle()
+                                .fill(model.featureColor(key))
+                                .frame(width: 22, height: 22)
+                                .overlay(Circle().stroke(Theme.borderHi, lineWidth: 1))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(Theme.dimmer)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(RowButtonStyle())
                 }
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
@@ -200,52 +231,39 @@ struct ConfigView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.86), value: model.flag(key))
     }
 
-    private func colorPalette(_ colorKey: String) -> some View {
-        let (cr, cg, cb) = model.featureRGB(colorKey)
-        let presets: [(Double, Double, Double)] = [
-            (1.00, 0.15, 0.15),
-            (1.00, 0.55, 0.10),
-            (1.00, 0.85, 0.10),
-            (0.55, 1.00, 0.35),
-            (0.10, 1.00, 0.10),
-            (0.10, 0.90, 1.00),
-            (0.25, 0.50, 1.00),
-            (0.65, 0.30, 1.00),
-            (1.00, 0.30, 0.65),
-            (1.00, 1.00, 1.00)
-        ]
-        return VStack(alignment: .leading, spacing: 8) {
-            Text(model.tr("Màu hiển thị", "Display color"))
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(Theme.dimmer)
-                .tracking(0.8)
-            HStack(spacing: 7) {
-                ForEach(0..<presets.count, id: \.self) { i in
-                    let p = presets[i]
-                    let sel = abs(cr - p.0) < 0.02 && abs(cg - p.1) < 0.02 && abs(cb - p.2) < 0.02
-                    Button {
-                        model.setFeatureColor(colorKey, Color(red: p.0, green: p.1, blue: p.2))
-                    } label: {
-                        Circle()
-                            .fill(Color(red: p.0, green: p.1, blue: p.2))
-                            .frame(width: 22, height: 22)
-                            .overlay(
-                                Circle().stroke(Theme.borderHi, lineWidth: 1)
-                            )
-                            .overlay(
-                                Circle().stroke(Color.white, lineWidth: sel ? 2.5 : 0)
-                            )
-                            .scaleEffect(sel ? 1.12 : 1)
-                            .animation(.easeOut(duration: 0.15), value: sel)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+    private func colorTitle(_ key: String) -> String {
+        if key == "box" {
+            return model.tr("Màu Box", "Box color")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.top, 10)
-        .padding(.bottom, 12)
+        if key == "line" {
+            return model.tr("Màu Line", "Line color")
+        }
+        return model.tr("Màu Bone", "Bone color")
+    }
+
+    private func colorPickerOverlay(_ key: String) -> some View {
+        let (r, g, b) = model.featureRGB(key)
+        return ZStack(alignment: .bottom) {
+            Color.black.opacity(0.45)
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .onTapGesture {
+                    colorPickKey = nil
+                }
+            CustomColorPickerPanel(
+                title: colorTitle(key),
+                initial: (r, g, b),
+                onChange: { nr, ng, nb in
+                    model.setFeatureColor(key, Color(red: nr, green: ng, blue: nb))
+                },
+                onClose: {
+                    colorPickKey = nil
+                }
+            )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
+        }
     }
 
     private var boneRow: some View {
@@ -435,5 +453,172 @@ struct InjectButtonStyle: ButtonStyle {
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+
+/// self-made HSV color picker panel (no system color picker)
+struct CustomColorPickerPanel: View {
+    let title: String
+    let onChange: (Double, Double, Double) -> Void
+    let onClose: () -> Void
+
+    @State private var hue: Double
+    @State private var sat: Double
+    @State private var val: Double
+
+    init(title: String,
+         initial: (Double, Double, Double),
+         onChange: @escaping (Double, Double, Double) -> Void,
+         onClose: @escaping () -> Void) {
+        self.title = title
+        self.onChange = onChange
+        self.onClose = onClose
+        let hsv = CustomColorPickerPanel.rgbToHSV(initial.0, initial.1, initial.2)
+        _hue = State(initialValue: hsv.0)
+        _sat = State(initialValue: hsv.1)
+        _val = State(initialValue: hsv.2)
+    }
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Capsule()
+                .fill(Color.white.opacity(0.25))
+                .frame(width: 36, height: 5)
+                .padding(.top, 10)
+            HStack(spacing: 10) {
+                Text(title)
+                    .font(.headline.weight(.heavy))
+                    .foregroundColor(.white)
+                Spacer()
+                Circle()
+                    .fill(Color(hue: hue, saturation: sat, brightness: val))
+                    .frame(width: 26, height: 26)
+                    .overlay(Circle().stroke(Theme.borderHi, lineWidth: 1))
+            }
+            gradientSlider(
+                Gradient(colors: [
+                    Color(hue: 0.00, saturation: 1, brightness: 1),
+                    Color(hue: 0.17, saturation: 1, brightness: 1),
+                    Color(hue: 0.33, saturation: 1, brightness: 1),
+                    Color(hue: 0.50, saturation: 1, brightness: 1),
+                    Color(hue: 0.67, saturation: 1, brightness: 1),
+                    Color(hue: 0.83, saturation: 1, brightness: 1),
+                    Color(hue: 1.00, saturation: 1, brightness: 1)
+                ]),
+                value: hue
+            ) { v in
+                hue = v
+                onChange(Self.hsvToRGB(v, sat, val))
+            }
+            gradientSlider(
+                Gradient(colors: [
+                    Color(hue: hue, saturation: 0, brightness: val),
+                    Color(hue: hue, saturation: 1, brightness: val)
+                ]),
+                value: sat
+            ) { v in
+                sat = v
+                onChange(Self.hsvToRGB(hue, v, val))
+            }
+            gradientSlider(
+                Gradient(colors: [
+                    Color(hue: hue, saturation: sat, brightness: 0),
+                    Color(hue: hue, saturation: sat, brightness: 1)
+                ]),
+                value: val
+            ) { v in
+                val = v
+                onChange(Self.hsvToRGB(hue, sat, v))
+            }
+            Button {
+                onClose()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 13, weight: .bold))
+                    Text("OK")
+                        .font(.subheadline.weight(.heavy))
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 16)
+        .background(Theme.cardHi)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Theme.borderHi, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
+    }
+
+    private func gradientSlider(_ gradient: Gradient, value: Double,
+                                 update: @escaping (Double) -> Void) -> some View {
+        GeometryReader { geo in
+            let w = Double(geo.size.width)
+            ZStack(alignment: .leading) {
+                LinearGradient(gradient: gradient, startPoint: .leading, endPoint: .trailing)
+                    .frame(height: 20)
+                    .clipShape(Capsule())
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 14, height: 14)
+                    .shadow(color: .black.opacity(0.5), radius: 3)
+                    .offset(x: CGFloat(max(0, min(w - 14, value * w - 7))))
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { g in
+                        let v = Double(g.location.x) / max(1.0, w)
+                        update(max(0, min(1, v)))
+                    }
+            )
+        }
+        .frame(height: 26)
+    }
+
+    static func hsvToRGB(_ h: Double, _ s: Double, _ v: Double) -> (Double, Double, Double) {
+        let i = Int(h * 6) % 6
+        let f = h * 6 - Double(Int(h * 6))
+        let p = v * (1 - s)
+        let q = v * (1 - f * s)
+        let t = v * (1 - (1 - f) * s)
+        switch i {
+        case 0: return (v, t, p)
+        case 1: return (q, v, p)
+        case 2: return (p, v, t)
+        case 3: return (p, q, v)
+        case 4: return (t, p, v)
+        default: return (v, p, q)
+        }
+    }
+
+    static func rgbToHSV(_ r: Double, _ g: Double, _ b: Double) -> (Double, Double, Double) {
+        let maxv = max(r, max(g, b))
+        let minv = min(r, min(g, b))
+        let d = maxv - minv
+        var h = 0.0
+        if d > 0.0001 {
+            if maxv == r {
+                h = ((g - b) / d).truncatingRemainder(dividingBy: 6) / 6
+            } else if maxv == g {
+                h = (((b - r) / d) + 2) / 6
+            } else {
+                h = (((r - g) / d) + 4) / 6
+            }
+            if h < 0 {
+                h += 1
+            }
+        }
+        let s = maxv <= 0.0001 ? 0 : d / maxv
+        return (h, s, maxv)
     }
 }
