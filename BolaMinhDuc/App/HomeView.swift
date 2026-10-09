@@ -263,21 +263,30 @@ struct HomeView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
             }
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.tr("KEY", "KEY"))
+                    .font(.system(size: 8, weight: .bold))
+                    .tracking(0.8)
+                    .foregroundColor(Theme.dimmer)
                 Text(model.keyMaskedName)
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                HStack(spacing: 4) {
-                    Image(systemName: "clock.fill")
-                        .font(.system(size: 9, weight: .bold))
-                    Text(model.tr("\(model.keyHoursLeft) giờ", "\(model.keyHoursLeft)h"))
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .foregroundColor(Theme.dim)
             }
             Spacer()
+            HStack(spacing: 5) {
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 10, weight: .bold))
+                Text(model.tr("\(model.keyHoursLeft) giờ", "\(model.keyHoursLeft)h"))
+                    .font(.system(size: 12, weight: .bold))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 7)
+            .background(Theme.cardHi)
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Theme.border, lineWidth: 1))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
