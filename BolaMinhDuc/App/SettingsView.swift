@@ -7,6 +7,7 @@ struct SettingsView: View {
 
     @State private var appear = false
     @State private var showPairing = false
+    @State private var pinText = ""
 
     var body: some View {
         ZStack {
@@ -257,6 +258,29 @@ struct SettingsView: View {
                         .font(.caption2)
                         .foregroundColor(Theme.dim)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if model.pairingNeedPin {
+                    HStack(spacing: 10) {
+                        TextField(model.tr("Nhập mã trên màn hình", "Enter code from screen"), text: $pinText)
+                            .keyboardType(.numberPad)
+                            .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Theme.card)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(Theme.borderHi, lineWidth: 1)
+                            )
+                        pillButton(model.tr("Gửi", "Send"), primary: true) {
+                            let pin = pinText.trimmingCharacters(in: .whitespaces)
+                            if !pin.isEmpty {
+                                model.submitPairingPin(pin)
+                                pinText = ""
+                            }
+                        }
+                        .frame(width: 84)
+                    }
                 }
             }
             .padding(.horizontal, 16)

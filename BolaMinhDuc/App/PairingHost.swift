@@ -1,28 +1,54 @@
 import Foundation
 import Darwin
 
-/// On-device pairing via the vendored idevice FFI (pairable-host flow).
-/// Needs LocalDevVPN (the device reaches the host via the 10.7.0.1 loopback).
+/// On-device pairing: connects to the device's own `_remotepairing` service
+/// through the LocalDevVPN loopback (10.7.0.1:49152), runs pair-setup with a
+/// freshly generated pairing file and saves it. No computer required.
 enum PairingHost {
 
-    final class PinBox {
-        var onPin: ((String) -> Void)?
+    // MARK: pin relay (the device shows a code; the user types it in-app)
+
+    final class PinEntryBox {
+        let sem = DispatchSemaphore(value: 0)
+        var pin: String?
     }
 
-    final class StateBox {
-        var cancel: OpaquePointer?
-        var timedOut = false
-    }
+    private static let pinEntry = PinEntryBox()
+    private static let pinBuf: UnsafeMutablePointer<CChar> = {
+        let p = UnsafeMutablePointer<CChar>.allocate(capacity: 16)
+        p.initialize(repeating: 0, count: 16)
+        return p
+    }()
 
-    private static let state = StateBox()
+    static var onNeedPin: (() -> Void)?
 
-    private static let pinCallback: PairableHostPinCb = { pin, context in
-        guard let pin = pin, let context = context else { return }
-        let box = Unmanaged<PinBox>.fromOpaque(context).takeUnretainedValue()
-        let code = String(cString: pin)
-        if let cb = box.onPin {
-            DispatchQueue.main.async { cb(code) }
+    private static let pinEntryCallback: @convention(c) (UnsafeMutableRawPointer?) -> UnsafePointer<CChar>? = { _ in
+        if let onNeed = PairingHost.onNeedPin {
+            DispatchQueue.main.async { onNeed() }
         }
+        pinEntry.sem.wait()
+        let code = pinEntry.pin ?? ""
+        pinEntry.pin = nil
+        let utf8 = Array(code.utf8.prefix(15))
+        for i in 0..<16 {
+            pinBuf[i] = 0
+        }
+        for (i, b) in utf8.enumerated() {
+            pinBuf[i] = CChar(bitPattern: b)
+        }
+        return UnsafePointer(pinBuf)
+    }
+
+    /// Called from the UI with the code shown on the device screen.
+    static func submitPin(_ pin: String) {
+        pinEntry.pin = pin
+        pinEntry.sem.signal()
+    }
+
+    /// Fallback escape: unblocks a waiting pin prompt (empty code → pairing fails).
+    static func cancel() {
+        pinEntry.pin = ""
+        pinEntry.sem.signal()
     }
 
     /// Heuristic: LocalDevVPN uses 10.7.0.1; accept any 10.7.x address or any
@@ -54,94 +80,66 @@ enum PairingHost {
         return false
     }
 
-    /// Stops a pending attempt (unblocks the FFI accept call).
-    static func cancel() {
-        if let c = state.cancel {
-            pairable_host_cancel_signal(c)
-        }
-    }
-
-    static func generate(progress: @escaping (String) -> Void,
-                         onPin: @escaping (String) -> Void) -> Result<String, PairError> {
-        let box = PinBox()
-        box.onPin = onPin
-        let ctx = Unmanaged.passUnretained(box).toOpaque()
-
-        // Cancellation token, kept alive for the process lifetime: freeing it
-        // while the watchdog may still fire would risk a use-after-free.
-        let cancel = pairable_host_cancel_new()
-        state.cancel = cancel
-        state.timedOut = false
-
-        DispatchQueue.global().asyncAfter(deadline: .now() + 120) {
-            if let c = state.cancel {
-                state.timedOut = true
-                pairable_host_cancel_signal(c)
-            }
-        }
-
-        var peer: UnsafeMutablePointer<RpPairingPeerDeviceC>? = nil
+    static func generate(progress: @escaping (String) -> Void) -> Result<String, PairError> {
         var file: OpaquePointer? = nil
+        let genErr = rp_pairing_file_generate("BolaMinhDuc", &file)
+        if let genErr = genErr {
+            return .failure(PairError(message: errorText(genErr)))
+        }
+        guard let pairFile = file else {
+            return .failure(PairError(message: "không tạo được pairing file"))
+        }
+        defer { rp_pairing_file_free(pairFile) }
 
-        progress("đang chờ máy kết nối — nhớ bật LocalDevVPN…")
+        progress("kết nối 10.7.0.1:49152 (cần LocalDevVPN)…")
 
-        let err: UnsafeMutablePointer<IdeviceFfiError>? = withExtendedLifetime(box) {
-            pairable_host_accept_with_options(
-                "BolaMinhDuc",
-                "Mac17,7",
-                0,
-                false,
-                pinCallback,
-                ctx,
-                cancel,
-                nil,
-                &peer,
-                &file
-            )
+        var addr = sockaddr_in()
+        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = UInt16(49152).bigEndian
+        addr.sin_addr.s_addr = inet_addr("10.7.0.1")
+
+        var adapter: OpaquePointer? = nil
+        var handshake: OpaquePointer? = nil
+
+        let err: UnsafeMutablePointer<IdeviceFfiError>? = withUnsafePointer(to: &addr) { p in
+            p.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
+                tunnel_create_rppairing(
+                    sa,
+                    socklen_t(MemoryLayout<sockaddr_in>.size),
+                    "BolaMinhDuc",
+                    pairFile,
+                    pinEntryCallback,
+                    nil,
+                    &adapter,
+                    &handshake
+                )
+            }
         }
 
         defer {
-            state.cancel = nil
-            if let file = file {
-                rp_pairing_file_free(file)
+            if let handshake = handshake {
+                rsd_handshake_free(handshake)
             }
-            if let peer = peer {
-                rppairing_peer_device_free(peer)
+            if let adapter = adapter {
+                adapter_free(adapter)
             }
         }
 
         if let err = err {
             let text = errorText(err)
-            if state.timedOut {
-                return .failure(PairError(message: "không thấy máy kết nối — kiểm tra LocalDevVPN + quyền Mạng cục bộ rồi thử lại"))
-            }
-            if text.lowercased().contains("cancel") {
-                return .failure(PairError(message: "đã huỷ ghép đôi"))
+            let lower = text.lowercased()
+            if lower.contains("connect") || lower.contains("refused") || lower.contains("timed out") || lower.contains("unreachable") {
+                return .failure(PairError(message: "không kết nối được 10.7.0.1:49152 — kiểm tra LocalDevVPN đã bật"))
             }
             return .failure(PairError(message: text))
         }
-        guard let file = file else {
-            return .failure(PairError(message: "ghép đôi xong nhưng không nhận được file"))
-        }
 
-        var data: UnsafeMutablePointer<UInt8>? = nil
-        var len: UInt = 0
-        let conv = rp_pairing_file_to_bytes(file, &data, &len)
-        if let conv = conv {
-            return .failure(PairError(message: errorText(conv)))
-        }
-        guard let data = data else {
-            return .failure(PairError(message: "không đọc được file ghép đôi"))
-        }
-        defer { idevice_data_free(data, len) }
-
-        let bytes = Data(bytes: data, count: Int(len))
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let url = docs.appendingPathComponent("bola_pairing.mobiledevicepairing")
-        do {
-            try bytes.write(to: url, options: .atomic)
-        } catch {
-            return .failure(PairError(message: "không ghi được file: \(error.localizedDescription)"))
+        let writeErr = rp_pairing_file_write(pairFile, url.path)
+        if let writeErr = writeErr {
+            return .failure(PairError(message: errorText(writeErr)))
         }
         progress("đã lưu file ghép đôi")
         return .success("bola_pairing.mobiledevicepairing")

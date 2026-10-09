@@ -37,6 +37,7 @@ final class AppModel: ObservableObject {
     @Published var pairingValid = false
     @Published var pairingBusy = false
     @Published var pairingPin: String? = nil
+    @Published var pairingNeedPin = false
     @Published var pairingStage: String? = nil
 
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
@@ -497,17 +498,26 @@ final class AppModel: ObservableObject {
         refreshPairing()
     }
 
-    /// Generates the pairing file ON-DEVICE (FFI pairable-host; needs LocalDevVPN).
+    /// Generates the pairing file ON-DEVICE (connects to the device's own
+    /// remotepairing service via LocalDevVPN at 10.7.0.1:49152).
     func generatePairingOnDevice() {
         guard !pairingBusy else { return }
         pairingBusy = true
         pairingPin = nil
+        pairingNeedPin = false
         pairingStage = nil
         append("pairing: bắt đầu tạo trên máy…")
         if !PairingHost.vpnLoopbackPresent() {
             append("pairing: chưa thấy VPN (utun/10.7.x)")
-            showToast(tr("Chưa thấy VPN — cần LocalDevVPN bật (và quyền Mạng cục bộ)",
-                         "VPN not detected — LocalDevVPN must be on (plus Local Network permission)"))
+            showToast(tr("Chưa thấy VPN — cần LocalDevVPN bật trước",
+                         "VPN not detected — turn on LocalDevVPN first"))
+        }
+        PairingHost.onNeedPin = { [weak self] in
+            guard let self = self else { return }
+            self.pairingNeedPin = true
+            self.append("pairing: máy đang hiện mã — nhập vào app")
+            self.showToast(self.tr("Nhập mã đang hiện trên màn hình vào app",
+                                   "Type the code shown on the screen into the app"))
         }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = PairingHost.generate(
@@ -516,20 +526,14 @@ final class AppModel: ObservableObject {
                         self?.append("pairing: " + line)
                         self?.pairingStage = line
                     }
-                },
-                onPin: { pin in
-                    DispatchQueue.main.async {
-                        self?.pairingPin = pin
-                        self?.append("pairing: mã ghép đôi " + pin)
-                        self?.showToast(self?.tr("Mã ghép đôi: \(pin) — nhập vào máy",
-                                                 "Pair code: \(pin) — type it on the device") ?? pin)
-                    }
                 }
             )
+            PairingHost.onNeedPin = nil
             DispatchQueue.main.async {
-                guard let self else { return }
+                guard let self = self else { return }
                 self.pairingBusy = false
                 self.pairingPin = nil
+                self.pairingNeedPin = false
                 self.pairingStage = nil
                 switch result {
                 case .success:
@@ -542,6 +546,12 @@ final class AppModel: ObservableObject {
                 self.refreshPairing()
             }
         }
+    }
+
+    /// The device is waiting for its on-screen code to be confirmed in-app.
+    func submitPairingPin(_ pin: String) {
+        pairingNeedPin = false
+        PairingHost.submitPin(pin)
     }
 
     /// Stops a pending on-device pairing attempt.
