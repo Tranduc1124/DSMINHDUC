@@ -48,17 +48,20 @@ jobs:
         run: |
           rm -rf Payload && mkdir -p Payload
           cp -R build/bola/BolaMinhDuc.app Payload/
-          zip -qry BolaMinhDuc-unsigned.ipa Payload
+          zip -qry MinDoCheat-unsigned.ipa Payload
+          # giữ tên cũ làm bản dự phòng để link cũ đã chia sẻ không chết
+          cp MinDoCheat-unsigned.ipa BolaMinhDuc-unsigned.ipa
           rm -rf Payload && mkdir -p Payload
           cp -R build/intexX/BolaMinhDuc.app Payload/
           zip -qry IntexX-unsigned.ipa Payload
-          ls -la BolaMinhDuc-unsigned.ipa IntexX-unsigned.ipa
+          ls -la MinDoCheat-unsigned.ipa BolaMinhDuc-unsigned.ipa IntexX-unsigned.ipa
 
       - name: Upload IPA artifacts
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-ipas
           path: |
+            MinDoCheat-unsigned.ipa
             BolaMinhDuc-unsigned.ipa
             IntexX-unsigned.ipa
           retention-days: 30
@@ -90,6 +93,7 @@ jobs:
               --notes-file RELEASE_NOTES.md \
               --latest
           fi
+          gh release upload latest MinDoCheat-unsigned.ipa --clobber --repo "$REPO"
           gh release upload latest BolaMinhDuc-unsigned.ipa --clobber --repo "$REPO"
           gh release edit latest --repo "$REPO" --title "MinDo Cheat (bản mới nhất)"
           if ! gh release view intexx --repo "$REPO" >/dev/null 2>&1; then
