@@ -513,6 +513,16 @@ struct ConfigView: View {
                 .padding(.vertical, 11)
             }
             rowDivider
+            toggleRowBadge("fastpara", "wind",
+                           model.tr("Nhảy Dù Siêu Tốc", "Fast Parachute"),
+                           model.tr("Rơi tự do & tiếp đất cực nhanh", "Fast fall & instant landing"),
+                           model.tr("RƠI NHANH", "FAST FALL"), .orange)
+            rowDivider
+            toggleRowBadge("emote", "figure.dance",
+                           model.tr("Điệu Nhảy Booyah", "Booyah Dance"),
+                           model.tr("Kích hoạt nhảy Booyah & Carnival liên tục", "Trigger Booyah & Carnival dance"),
+                           model.tr("BOOYAH", "BOOYAH"), .orange)
+            rowDivider
             toggleRowBadge("fastloot", "shippingbox.fill",
                            model.tr("Loot Đồ Nhanh", "Fast Loot"),
                            model.tr("Tối ưu nhặt đồ, chạy lướt qua là hút", "Instant auto pickup"),
@@ -627,8 +637,8 @@ struct ConfigView: View {
             Text(model.tr("Đang phát triển", "Coming soon"))
                 .font(.subheadline.weight(.bold))
                 .foregroundColor(.white)
-            Text(model.tr("Sắp có: Nhảy Dù Siêu Tốc, Bơm Máu Siêu Tốc",
-                          "Next: Fast Parachute, Fast Medkit"))
+            Text(model.tr("Sắp có: Bơm Máu Siêu Tốc (đang nghiên cứu)",
+                          "Next: Fast Medkit (researching)"))
                 .font(.caption)
                 .foregroundColor(Theme.dim)
                 .multilineTextAlignment(.center)

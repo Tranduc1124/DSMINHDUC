@@ -25,7 +25,8 @@ final class AppModel: ObservableObject {
     /// feature toggles shown in the app (pushed to the game live + persisted)
     static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock", "showfov", "team", "straight",
                           "fastfire", "buffdame", "fastreload", "fastswap", "nograss", "nofog", "highjump", "fps144",
-                          "chams", "spin360", "fastcrouch", "fastloot", "backjump", "speedrun", "camwide"]
+                          "chams", "spin360", "fastcrouch", "fastloot", "backjump", "speedrun", "camwide",
+                          "fastpara", "emote"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
@@ -70,7 +71,8 @@ final class AppModel: ObservableObject {
         let offByDefault: Set<String> = ["aim", "silent", "skipknock", "straight",
                                          "fastfire", "buffdame", "fastreload", "fastswap", "nograss",
                                          "nofog", "highjump", "fps144", "chams", "spin360",
-                                         "fastcrouch", "fastloot", "backjump", "speedrun", "camwide"]
+                                         "fastcrouch", "fastloot", "backjump", "speedrun", "camwide",
+                                         "fastpara", "emote"]
         for k in AppModel.cfgKeys {
             if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
                 d[k] = v
@@ -276,8 +278,8 @@ final class AppModel: ObservableObject {
         if flag("buffdame") { n1 |= 2 }
         if flag("fastreload") { n1 |= 4 }
         if flag("fastswap") { n1 |= 8 }
-        if flag("nograss") { n1 |= 16 }
-        if flag("nofog") { n1 |= 32 }
+        if flag("fastpara") { n1 |= 16 }
+        if flag("emote") { n1 |= 32 }
         if flag("highjump") { n1 |= 64 }
         if flag("fps144") { n1 |= 128 }
         payload[16] = n1
