@@ -81,9 +81,10 @@ final class AppModel: ObservableObject {
             }
         }
         cfgFlags = d
-        if let ab = UserDefaults.standard.object(forKey: "bola_antiban") as? Bool {
-            antiban = ab
-        }
+        // Anti-ban: không khôi phục trạng thái cũ — mỗi lần mở app đều OFF,
+        // phải tự bật lại (chỉ bật được sau khi key đã xác thực).
+        antiban = false
+        UserDefaults.standard.removeObject(forKey: "bola_antiban")
         aimBone = UserDefaults.standard.integer(forKey: "bola_bone")
         let storedFov = UserDefaults.standard.object(forKey: "bola_fov") as? Int
         if let f = storedFov, f >= 5 && f <= 100 {
@@ -610,7 +611,6 @@ extension AppModel {
             return
         }
         antiban = value
-        UserDefaults.standard.set(value, forKey: "bola_antiban")
         if value {
             startAntibanLoop()
             showToast(tr("🛡️ Đã bật Anti-ban — tự dọn dấu vết liên tục (tắt sẽ tự gỡ patch)",

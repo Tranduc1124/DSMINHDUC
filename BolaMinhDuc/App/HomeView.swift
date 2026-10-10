@@ -168,8 +168,8 @@ struct HomeView: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
                 Text(gate.state == .authorized
-                     ? model.tr("Tự dọn dấu vết liên tục khi chạy ngầm",
-                                "Keeps wiping traces in the background")
+                     ? model.tr("Mặc định tắt mỗi lần mở app — bật lại khi cần",
+                                "Off by default each launch — enable when needed")
                      : model.tr("🔑 Nhập key trước để bật", "🔑 Activate your key first"))
                     .font(.caption2)
                     .foregroundColor(Theme.dim)
