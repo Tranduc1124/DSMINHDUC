@@ -31,16 +31,22 @@ final class LicenseGate: ObservableObject {
             queue: .main
         ) { [weak self] note in
             guard let self = self else { return }
-            let s = (note.userInfo?[TserverStatusStringUserInfoKey] as? String) ?? ""
-            self.statusText = s
-            let typed = TserverStatusCodeFromString(s)
+            // LƯU Ý: bản .a SDK hiện tại KHÔNG export symbol chuỗi
+            // TserverStatusStringUserInfoKey — dùng key enum (NSNumber) thay thế.
+            var typed: TserverStatusCode = .unknown
+            if let n = note.userInfo?[TserverStatusEnumUserInfoKey] as? NSNumber,
+               let t = TserverStatusCode(rawValue: n.intValue) {
+                typed = t
+            } else if let res = note.userInfo?[TserverResultUserInfoKey] as? [String: Any],
+                      let st = res["status"] as? String {
+                typed = TserverStatusCodeFromString(st)
+            }
+            self.statusText = TserverStatusCodeString(typed)
             if TserverStatusCodeIsValid(typed) {
                 self.state = .authorized
                 self.afterAuthorized()
-            } else if TserverStatusCodeNeedsKey(typed) || typed == .unknown {
-                self.state = .needKey
             } else {
-                // expired / revoked / device mismatch / maintenance… -> về màn key
+                // needKey / expired / revoked / device mismatch / maintenance… -> màn key
                 self.state = .needKey
             }
         }

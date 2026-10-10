@@ -58,3 +58,4 @@ targets:
         CODE_SIGN_STYLE: Automatic
     dependencies:
       - sdk: Security.framework
+      - sdk: SafariServices.framework
