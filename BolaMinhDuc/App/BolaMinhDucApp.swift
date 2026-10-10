@@ -17,6 +17,9 @@ struct BolaMinhDucApp: App {
                 }
             }
             .preferredColorScheme(.dark)
+            .onOpenURL { url in
+                _ = APIClientHandleOpenURL(url)
+            }
             .onAppear {
                 LicenseGate.shared.start()
             }

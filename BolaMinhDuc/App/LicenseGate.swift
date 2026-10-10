@@ -77,6 +77,18 @@ final class LicenseGate: ObservableObject {
         }
     }
 
+    /// Mở lại luồng xác thực của SDK (hiện bảng nhập key của hệ thống).
+    func startIfNeeded() {
+        APIClient.startAuthorization({ [weak self] in
+            self?.state = .authorized
+            self?.afterAuthorized()
+        }, onRevoked: { [weak self] in
+            self?.state = .needKey
+        }, onTerminal: { res in
+            NSLog("tserver terminal: %@", String(describing: res))
+        })
+    }
+
     /// Nhập key từ màn hình đầu tiên.
     func confirm(_ key: String) {
         let k = key.trimmingCharacters(in: .whitespacesAndNewlines)

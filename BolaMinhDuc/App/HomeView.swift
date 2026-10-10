@@ -3,6 +3,7 @@ import SwiftUI
 /// Main screen: hero card (logo + device stats) + game list. Monochrome theme.
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
+    @ObservedObject private var gate = LicenseGate.shared
     var openGame: (GameTarget) -> Void
     var openSettings: () -> Void
 
@@ -166,8 +167,10 @@ struct HomeView: View {
                 Text(model.tr("Anti-ban", "Anti-ban"))
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
-                Text(model.tr("Tự dọn dấu vết liên tục khi chạy ngầm",
-                              "Keeps wiping traces in the background"))
+                Text(gate.state == .authorized
+                     ? model.tr("Tự dọn dấu vết liên tục khi chạy ngầm",
+                                "Keeps wiping traces in the background")
+                     : model.tr("🔑 Nhập key trước để bật", "🔑 Activate your key first"))
                     .font(.caption2)
                     .foregroundColor(Theme.dim)
                     .lineLimit(1)
@@ -179,6 +182,8 @@ struct HomeView: View {
             ))
             .labelsHidden()
             .tint(.white)
+            .disabled(gate.state != .authorized)
+            .opacity(gate.state == .authorized ? 1 : 0.4)
         }
         .padding(14)
         .background(Theme.card)

@@ -151,7 +151,7 @@ FOUNDATION_EXPORT void TserverDiagnosticsUpdateRuntime(NSDictionary *_Nullable f
 
 // Điền package token đúng MỘT LẦN tại đây. UI pack được chọn trên web và
 // chỉ hiển thị sau khi signed server config trả về; customer source không cần cấu hình thêm.
-static NSString * const kAPIClientPackageToken = @"pkg_kPoe_0Dj9r7V__OanehW5toQA0Mfhja2";
+static NSString * const kAPIClientPackageToken = @"pkg_6yNT9gnfWl9NjBw4vZw80CW9INCCUsNL";
 
 FOUNDATION_EXTERN void APIClientConfigure(NSString * _Nullable packageToken);
 /// Frida guard: terminate the process when Frida is attached. Enabled by

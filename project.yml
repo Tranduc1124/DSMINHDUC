@@ -45,6 +45,11 @@ targets:
         UILaunchScreen: {}
         LSApplicationQueriesSchemes:
           - freefire
+        CFBundleURLTypes:
+          - CFBundleURLName: com.bolaminhduc.license
+            CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - minhduc
     settings:
       base:
         # MobileHouseArrest path needs BOTH identifiers to be exactly

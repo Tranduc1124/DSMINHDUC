@@ -603,6 +603,12 @@ extension AppModel {
     }
 
     func setAntiban(_ value: Bool) {
+        // Anti-ban chỉ cho bật sau khi key đã xác thực xong
+        if value && LicenseGate.shared.state != .authorized {
+            showToast(tr("🔑 Nhập key xong rồi mới bật được Anti-ban nhé!",
+                         "🔑 Activate your key before enabling Anti-ban!"))
+            return
+        }
         antiban = value
         UserDefaults.standard.set(value, forKey: "bola_antiban")
         if value {
@@ -641,11 +647,14 @@ extension AppModel {
     /// including the background audio keep-alive).
     func startAntibanLoop() {
         guard antibanTimer == nil else { return }
+        // anti-ban chỉ chạy khi key đã xác thực xong
+        guard LicenseGate.shared.state == .authorized else { return }
         DispatchQueue.global(qos: .utility).async {
             Antiban.cleanAll()
         }
         antibanTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             guard let self, self.antiban else { return }
+            guard LicenseGate.shared.state == .authorized else { return }
             guard self.kernelDone
                 || Installer.hasAccess(to: GameTarget.freefireTH)
                 || Installer.hasAccess(to: GameTarget.freefireMAX) else { return }
