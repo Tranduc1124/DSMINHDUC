@@ -33,6 +33,9 @@ final class LicenseGate: ObservableObject {
         guard !started else { return }
         started = true
 
+        // Nạp UI pack native của SDK (bảng nhập key / gate UI) — cần cho app sideload.
+        TserverForceLoadNativeUiPacks()
+
         // BẮT BUỘC: nạp package token trước khi xác thực.
         APIClientConfigure("pkg_6yNT9gnfWl9NjBw4vZw80CW9INCCUsNL")
 
