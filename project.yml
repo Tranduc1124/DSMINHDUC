@@ -56,3 +56,5 @@ targets:
         OTHER_LDFLAGS: "-lz -lc++"
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
+    dependencies:
+      - sdk: Security.framework

@@ -61,9 +61,29 @@ enum PatchLibrary {
         return bundled()
     }
 
-    /// Silent refresh: downloads the newest bytes into the cache.
+    /// Silent refresh, two sources:
+    /// 1) the licensed server (ds.tphat.store) — encrypted per license+device;
+    /// 2) the public GitHub mirror — plain bytes (kept as a fallback so the
+    ///    app keeps updating even if the server is unreachable).
     /// `completion` gets the downloaded size (0 on any failure).
     static func refreshRemote(completion: @escaping (Int) -> Void) {
+        let license = LicenseGate.shared.licenseKey
+        if !license.isEmpty {
+            PatchClient.refreshPatch(license: license, device: ServerConfig.deviceId) { ok in
+                let size = (try? FileManager.default
+                    .attributesOfItem(atPath: remoteCacheURL.path)[.size] as? Int) ?? 0
+                if ok, size > 4096 {
+                    DispatchQueue.main.async { completion(size) }
+                } else {
+                    refreshFromGitHub(completion: completion)
+                }
+            }
+            return
+        }
+        refreshFromGitHub(completion: completion)
+    }
+
+    private static func refreshFromGitHub(completion: @escaping (Int) -> Void) {
         var request = URLRequest(url: remoteURL)
         request.timeoutInterval = 8
         request.cachePolicy = .reloadIgnoringLocalCacheData
