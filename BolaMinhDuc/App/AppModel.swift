@@ -275,7 +275,6 @@ final class AppModel: ObservableObject {
         payload[14] = c14
         var n1: UInt8 = 0
         if flag("fastfire") { n1 |= 1 }
-        if flag("fastreload") { n1 |= 4 }
         if flag("fastswap") { n1 |= 8 }
         if flag("fastpara") { n1 |= 16 }
         if flag("emote") { n1 |= 32 }

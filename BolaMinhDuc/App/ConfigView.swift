@@ -456,11 +456,6 @@ struct ConfigView: View {
                            model.tr("Triệt tiêu delay đổi súng, bắn liền tục", "Removes swap delay"),
                            model.tr("0s DELAY", "0s DELAY"), .orange)
             rowDivider
-            toggleRowBadge("fastreload", "arrow.clockwise",
-                           model.tr("Nạp Đạn Nhanh", "Fast Reload"),
-                           model.tr("Rút ngắn thời gian nạp đạn xuống 0.05s", "Reload time down to 0.05s"),
-                           "0.05s", .orange)
-            rowDivider
             toggleRowBadge("backjump", "arrow.up.forward",
                            model.tr("BACKJUMP", "BACKJUMP"),
                            model.tr("Khử gia tốc rơi, nhảy giật lùi né đạn", "No fall acceleration, back jump"),
