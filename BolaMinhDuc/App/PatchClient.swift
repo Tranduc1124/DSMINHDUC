@@ -36,6 +36,7 @@ enum PatchClient {
             guard let url = URL(string: ServerConfig.base + "/api/client/patch?" + q) else { return done(false) }
             var req = URLRequest(url: url)
             req.timeoutInterval = 30
+            req.cachePolicy = .reloadIgnoringLocalCacheData
             URLSession.shared.dataTask(with: req) { data, _, _ in
                 guard let data = data,
                       let plain = decrypt(data, secret: secret, license: license, device: device) else {
@@ -60,6 +61,7 @@ enum PatchClient {
         guard let url = URL(string: ServerConfig.base + "/api/client/secret?" + q) else { return done(nil) }
         var req = URLRequest(url: url)
         req.timeoutInterval = 20
+        req.cachePolicy = .reloadIgnoringLocalCacheData
         URLSession.shared.dataTask(with: req) { data, _, _ in
             guard let data = data,
                   let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -110,6 +112,7 @@ enum PatchClient {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
         req.timeoutInterval = 20
+        req.cachePolicy = .reloadIgnoringLocalCacheData
         URLSession.shared.dataTask(with: req) { data, _, _ in
             let j = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
             DispatchQueue.main.async { done(j) }

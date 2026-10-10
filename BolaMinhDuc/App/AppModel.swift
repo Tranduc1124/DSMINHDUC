@@ -354,6 +354,10 @@ final class AppModel: ObservableObject {
             startAntibanLoop()
         }
 
+        // tự hồi .bola_tok nếu patch trong game khớp key hiện tại
+        // (trường hợp token bị xoá thủ công — không cần inject lại)
+        selfHealToken()
+
         // OTA patch: silently fetch the newest bytes from the repo so patch
         // fixes apply without reinstalling the app.
         refreshPatchRemote()
@@ -395,6 +399,16 @@ final class AppModel: ObservableObject {
         if exp > 0 {
             let secs = exp - Int(Date().timeIntervalSince1970)
             keyHoursLeft = secs > 0 ? (secs + 3599) / 3600 : 0
+        }
+    }
+
+    /// Tự hồi .bola_tok trong container game (nếu patch đang cài khớp key).
+    private func selfHealToken() {
+        let g = game
+        DispatchQueue.global(qos: .utility).async {
+            if Installer.hasAccess(to: g) {
+                _ = Installer.resyncTokenIfNeeded(for: g)
+            }
         }
     }
 

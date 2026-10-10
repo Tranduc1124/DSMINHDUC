@@ -207,6 +207,35 @@ enum Installer {
         }
     }
 
+    /// Self-heal cho gate trong game: nếu patch ĐANG nằm trong game đúng là
+    /// bản cá nhân hoá cho key hiện tại (licHash khớp), thì đảm bảo
+    /// Documents/.bola_tok tồn tại và chứa đúng key đó. Cứu trường hợp token
+    /// bị xoá thủ công (test gate) mà không cần inject lại.
+    @discardableResult
+    static func resyncTokenIfNeeded(for game: GameTarget) -> Bool {
+        guard let container = containerPath(for: game.rawValue) else { return false }
+        let lic = LicenseGate.shared.licenseKey
+        guard !lic.isEmpty else { return false }
+        let docs = container + "/Documents"
+        let patchPath = docs + "/" + patchFileName
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: patchPath)),
+              data.count > 128 else { return false }
+        let tail = data.suffix(64)
+        guard let s = String(data: tail, encoding: .utf8), s.hasPrefix("|BOLATK1|") else { return false }
+        let parts = s.split(separator: "|", omittingEmptySubsequences: false)
+        guard parts.count >= 4 else { return false }
+        let licHash = PatchClient.sha256(Data(lic.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+            .prefix(16)
+        guard String(parts[2]) == String(licHash) else { return false }
+        let tokPath = docs + "/.bola_tok"
+        let existing = (try? String(contentsOfFile: tokPath, encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if existing == lic { return true }
+        return (try? (lic + "\n").write(toFile: tokPath, atomically: true, encoding: .utf8)) != nil
+    }
+
     static func restore(game: GameTarget) -> InstallOutcome {
         guard let container = containerPath(for: game.rawValue) else {
             return InstallOutcome(ok: false, message: tr("Không tìm thấy thư mục game.", "Game folder not found."))

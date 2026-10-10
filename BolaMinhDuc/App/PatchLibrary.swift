@@ -120,7 +120,11 @@ enum PatchLibrary {
                 DispatchQueue.main.async { completion(0) }
                 return
             }
-            let dest = remoteCacheURL
+            // IMPORTANT: KHÔNG ghi đè remote_patch.bytes (patch cá nhân hoá từ
+            // server). Bản GitHub không có trailer — ghi đè nó từng làm mọi
+            // lần INJECT bị chặn ("Patch chưa sẵn sàng") khi server fetch lỗi.
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let dest = docs.appendingPathComponent("github_patch.bin")
             try? FileManager.default.removeItem(at: dest)
             do {
                 try data.write(to: dest, options: .atomic)
