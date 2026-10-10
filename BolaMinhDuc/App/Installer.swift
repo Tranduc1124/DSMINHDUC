@@ -248,6 +248,8 @@ enum Installer {
         try? fm.removeItem(atPath: dest)
         try? fm.removeItem(atPath: dest + ".bak")
         try? fm.removeItem(atPath: docs + "/" + localConfigName)
+        // unject sạch: xoá luôn token để scan giữa/cuối trận không thấy gì
+        try? fm.removeItem(atPath: docs + "/.bola_tok")
         return InstallOutcome(
             ok: true,
             message: had
