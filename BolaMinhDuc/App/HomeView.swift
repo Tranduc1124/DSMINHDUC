@@ -216,7 +216,7 @@ struct HomeView: View {
                         )
                     Image(systemName: "person.crop.circle.badge.xmark")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.white)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(model.tr("Reset Guest", "Reset Guest"))
@@ -231,7 +231,7 @@ struct HomeView: View {
                 Spacer()
                 Image(systemName: "arrow.counterclockwise.circle.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(.orange)
+                    .foregroundColor(.white)
             }
             .padding(14)
             .background(Theme.card)

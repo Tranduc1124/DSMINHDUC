@@ -70,7 +70,7 @@ jobs:
         run: |
           REPO="${{ github.repository }}"
           cat > RELEASE_NOTES.md <<'NOTES'
-          BOLAMINHDUC (iOS) — luôn là bản build MỚI NHẤT (file IPA được ghi đè sau mỗi lần build).
+          MINDO CHEAT (iOS) — luôn là bản build MỚI NHẤT (file IPA được ghi đè sau mỗi lần build).
 
           **Ký trước khi cài:** file `.ipa` này chưa được ký (unsigned).
           Dùng Esign / Sideloadly + chứng chỉ enterprise để ký rồi cài lên máy.
@@ -91,6 +91,7 @@ jobs:
               --latest
           fi
           gh release upload latest BolaMinhDuc-unsigned.ipa --clobber --repo "$REPO"
+          gh release edit latest --repo "$REPO" --title "MinDo Cheat (bản mới nhất)"
           if ! gh release view intexx --repo "$REPO" >/dev/null 2>&1; then
             gh release create intexx --repo "$REPO" \
               --title "INTEXX (bản mới nhất)" \
