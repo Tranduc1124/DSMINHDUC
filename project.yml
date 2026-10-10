@@ -60,6 +60,7 @@ targets:
         SWIFT_OBJC_BRIDGING_HEADER: BolaMinhDuc/BolaMinhDuc-Bridging-Header.h
         OTHER_LDFLAGS: "-lz -lc++ -ObjC -L$(SRCROOT)/BolaMinhDuc/vendor/APIClient -lAPIClient"
         TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
     dependencies:
       - sdk: Security.framework
