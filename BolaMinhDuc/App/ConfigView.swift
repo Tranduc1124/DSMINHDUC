@@ -477,14 +477,9 @@ struct ConfigView: View {
                            "1.2X", .orange)
             rowDivider
             toggleRowBadge("spin360", "arrow.triangle.2.circlepath",
-                           model.tr("Spinbot 360° (Xoay Liên Tục)", "Spinbot 360° (continuous)"),
-                           model.tr("Người xoay 360° liên tục + quay đầu tức thì", "Player spins 360° continuously + instant turn"),
-                           model.tr("XOAY 600°/S", "SPIN 600°/S"), .red)
-            rowDivider
-            toggleRowBadge("nofog", "cloud.fill",
-                           model.tr("Khử Sương Mù", "No Fog"),
-                           model.tr("Xóa sương mù, mở rộng tầm nhìn xa", "Removes fog, widens view"),
-                           "1000M", .orange)
+                           model.tr("Spinbot 360° (Xoay Người)", "Spinbot 360° (body spin)"),
+                           model.tr("Nhân vật xoay 360° liên tục — camera bình thường", "Body spins 360° continuously — camera stays normal"),
+                           model.tr("XOAY NGƯỜI", "BODY SPIN"), .red)
             rowDivider
             toggleRowBadge("fastloot", "shippingbox.fill",
                            model.tr("Loot Đồ Nhanh", "Fast Loot"),
