@@ -523,16 +523,6 @@ struct ConfigView: View {
                            model.tr("Kích hoạt nhảy Booyah & Carnival liên tục", "Trigger Booyah & Carnival dance"),
                            model.tr("BOOYAH", "BOOYAH"), .orange)
             rowDivider
-            toggleRowBadge("fastloot", "shippingbox.fill",
-                           model.tr("Loot Đồ Nhanh", "Fast Loot"),
-                           model.tr("Tối ưu nhặt đồ, chạy lướt qua là hút", "Instant auto pickup"),
-                           model.tr("AUTO LOOT", "AUTO LOOT"), .orange)
-            rowDivider
-            toggleRowBadge("fastcrouch", "figure.walk",
-                           model.tr("Ngồi Chạy Siêu Tốc", "Fast Crouch Run"),
-                           model.tr("Di chuyển nhanh ở tư thế ngồi", "Fast movement while crouched"),
-                           model.tr("FAST CROUCH", "FAST CROUCH"), .orange)
-            rowDivider
             toggleRowBadge("fps144", "speedometer",
                            model.tr("Mở Khóa 144 FPS", "Unlock 144 FPS"),
                            model.tr("Mở khóa tần số quét, hình ảnh siêu mượt", "Unlocks high refresh rate"),

@@ -285,8 +285,6 @@ final class AppModel: ObservableObject {
         payload[16] = n1
         var n2: UInt8 = 0
         if flag("camwide") { n2 |= 2 }
-        if flag("fastcrouch") { n2 |= 4 }
-        if flag("fastloot") { n2 |= 8 }
         if flag("backjump") { n2 |= 16 }
         if flag("speedrun") { n2 |= 32 }
         payload[17] = n2
