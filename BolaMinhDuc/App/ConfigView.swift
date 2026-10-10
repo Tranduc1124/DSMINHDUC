@@ -477,24 +477,14 @@ struct ConfigView: View {
                            "1.2X", .orange)
             rowDivider
             toggleRowBadge("spin360", "arrow.triangle.2.circlepath",
-                           model.tr("Đảo Như PC 360°", "PC-like 360° Spin"),
-                           model.tr("Quay đầu tức thì không quán tính", "Instant turn, no inertia"),
-                           "9999°", .orange)
-            rowDivider
-            toggleRowBadge("nograss", "leaf.fill",
-                           model.tr("Khử Cỏ 100%", "No Grass"),
-                           model.tr("Làm phẳng bụi cỏ cao & vừa toàn map", "Flattens tall grass everywhere"),
-                           model.tr("NO GRASS", "NO GRASS"), .green)
+                           model.tr("Spinbot 360° (Xoay Liên Tục)", "Spinbot 360° (continuous)"),
+                           model.tr("Người xoay 360° liên tục + quay đầu tức thì", "Player spins 360° continuously + instant turn"),
+                           model.tr("XOAY 600°/S", "SPIN 600°/S"), .red)
             rowDivider
             toggleRowBadge("nofog", "cloud.fill",
                            model.tr("Khử Sương Mù", "No Fog"),
                            model.tr("Xóa sương mù, mở rộng tầm nhìn xa", "Removes fog, widens view"),
                            "1000M", .orange)
-            rowDivider
-            toggleRowBadge("chams", "person.crop.rectangle.fill",
-                           model.tr("Chams Viền Đỏ", "Red Chams Outline"),
-                           model.tr("Địch phát sáng viền đỏ xuyên vật thể", "Enemies glow red through walls"),
-                           model.tr("CHAMS", "CHAMS"), .orange)
             rowDivider
             toggleRowBadge("fastloot", "shippingbox.fill",
                            model.tr("Loot Đồ Nhanh", "Fast Loot"),
