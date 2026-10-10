@@ -61,12 +61,12 @@ struct HomeView: View {
                         .fill(Color.white)
                         .frame(width: 52, height: 52)
                         .shadow(color: .white.opacity(0.18), radius: 16, y: 4)
-                    Image(systemName: "bolt.shield.fill")
+                    Image(systemName: AppBrand.symbol)
                         .font(.system(size: 23, weight: .bold))
                         .foregroundColor(.black)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("BOLAMINHDUC")
+                    Text(AppBrand.name)
                         .font(.headline.weight(.heavy))
                         .foregroundColor(.white)
                         .tracking(0.6)

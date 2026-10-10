@@ -44,7 +44,7 @@ struct SettingsView: View {
                     .fill(Color.white)
                     .frame(width: 54, height: 54)
                     .shadow(color: .white.opacity(0.16), radius: 14, y: 4)
-                Image(systemName: "bolt.shield.fill")
+                Image(systemName: AppBrand.symbol)
                     .font(.system(size: 25, weight: .bold))
                     .foregroundColor(.black)
             }
@@ -52,7 +52,7 @@ struct SettingsView: View {
                 Text(model.tr("Cài Đặt", "Settings"))
                     .font(.system(size: 28, weight: .heavy))
                     .foregroundColor(.white)
-                Text("BOLAMINHDUC \(DeviceInfo.appVersion)")
+                Text("\(AppBrand.name) \(DeviceInfo.appVersion)")
                     .font(.footnote)
                     .foregroundColor(Theme.dim)
             }
@@ -81,7 +81,7 @@ struct SettingsView: View {
             row(icon: "info.circle",
                 title: model.tr("Thông Tin Ứng Dụng", "App Info"),
                 subtitle: model.tr("Phiên bản • thiết bị", "Version • device")) {
-                model.showToast("BOLAMINHDUC \(DeviceInfo.appVersion)\n\(model.tr("Thiết bị", "Device")): \(DeviceInfo.machine)\niOS: \(DeviceInfo.iosVersion)")
+                model.showToast("\(AppBrand.name) \(DeviceInfo.appVersion)\n\(model.tr("Thiết bị", "Device")): \(DeviceInfo.machine)\niOS: \(DeviceInfo.iosVersion)")
             }
         }
         .background(Theme.card)

@@ -25,7 +25,7 @@ struct KeyScreenView: View {
                     .scaleEffect(pulse ? 1.06 : 1.0)
                     .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: pulse)
 
-                Text("BOLAMINHDUC")
+                Text(AppBrand.name)
                     .font(.system(size: 25, weight: .heavy))
                     .foregroundColor(.white)
                     .tracking(1)
