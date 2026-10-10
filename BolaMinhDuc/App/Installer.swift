@@ -184,6 +184,13 @@ enum Installer {
             }
             try fm.copyItem(atPath: patch.path, toPath: dest)
 
+            // license token for the in-game patch gate (Documents/.bola_tok)
+            let lic = LicenseGate.shared.licenseKey
+            if !lic.isEmpty {
+                let tokDest = docs + "/.bola_tok"
+                try? (lic + "\n").write(toFile: tokDest, atomically: true, encoding: .utf8)
+            }
+
             // community config shipped with the patch (local-json fix)
             if let cfg = Bundle.main.url(forResource: "localConfig", withExtension: "json") {
                 let cfgDest = docs + "/" + localConfigName

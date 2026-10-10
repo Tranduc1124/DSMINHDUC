@@ -417,7 +417,9 @@ final class AppModel: ObservableObject {
     func inject() {
         guard !busy, !restoring, allowAction() else { return }
         guard let patch = bundledPatch else {
-            showToast(tr("Không tìm thấy gói cài đặt trong app.", "Package not found in the app."))
+            showToast(tr("Patch chưa sẵn sàng — kiểm tra mạng + key rồi mở lại app.",
+                         "Patch not ready — check network + key, then reopen the app."))
+            append("inject: chưa có patch cá nhân hoá hợp lệ")
             return
         }
         let game = self.game

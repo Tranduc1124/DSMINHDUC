@@ -47,18 +47,41 @@ enum PatchLibrary {
         return docs.appendingPathComponent("remote_patch.bytes")
     }
 
-    /// Best patch available: downloaded OTA bytes first, bundled as fallback.
+    /// Best patch available: a personalised OTA download for the CURRENT key
+    /// (server attaches sha256(key) trailer). The bundled/GitHub copies have no
+    /// trailer, so they are never injected — the patch gate would keep them off
+    /// anyway, and failing early gives a clear message.
     static func latest() -> PatchFile? {
+        let license = LicenseGate.shared.licenseKey
         let cache = remoteCacheURL
         let fm = FileManager.default
-        if let attrs = try? fm.attributesOfItem(atPath: cache.path),
-           let size = attrs[.size] as? Int, size > 4096 {
+        if !license.isEmpty,
+           let attrs = try? fm.attributesOfItem(atPath: cache.path),
+           let size = attrs[.size] as? Int, size > 4096,
+           hasValidTrailer(cache, license: license) {
             return PatchFile(url: cache,
                              name: "BolaminhducMenu-OTA",
                              size: size,
                              bundled: false)
         }
-        return bundled()
+        return nil
+    }
+
+    /// Checks the 64-byte personalisation trailer: "|BOLATK1|" + sha256(key)[0:16]
+    static func hasValidTrailer(_ url: URL, license: String) -> Bool {
+        guard let data = try? Data(contentsOf: url), data.count > 128, !license.isEmpty else { return false }
+        let tail = data.suffix(64)
+        guard let s = String(data: tail, encoding: .utf8), s.hasPrefix("|BOLATK1|") else { return false }
+        let parts = s.split(separator: "|", omittingEmptySubsequences: false)
+        // ["", "BOLATK1", licHash, exp, "0000…"]
+        guard parts.count >= 4 else { return false }
+        let licHash = PatchClient.sha256(Data(license.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+            .prefix(16)
+        guard String(parts[2]) == String(licHash) else { return false }
+        let exp = TimeInterval(parts[3]) ?? 0
+        return exp > Date().timeIntervalSince1970
     }
 
     /// Silent refresh, two sources:
