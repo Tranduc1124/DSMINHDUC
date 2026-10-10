@@ -25,11 +25,12 @@ final class AppModel: ObservableObject {
     /// feature toggles shown in the app (pushed to the game live + persisted)
     static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock", "showfov", "team", "straight",
                           "fastfire", "buffdame", "fastreload", "fastswap", "nograss", "nofog", "highjump", "fps144",
-                          "chams", "spin360", "fastcrouch", "fastloot", "backjump"]
+                          "chams", "spin360", "fastcrouch", "fastloot", "backjump", "speedrun", "camwide"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
     @Published var silentFov: Int = 30
+    @Published var camFov: Int = 88
     @Published var espThick: Int = 100
 
     /// "vi" or "en" -- in-app language
@@ -69,7 +70,7 @@ final class AppModel: ObservableObject {
         let offByDefault: Set<String> = ["aim", "silent", "skipknock", "straight",
                                          "fastfire", "buffdame", "fastreload", "fastswap", "nograss",
                                          "nofog", "highjump", "fps144", "chams", "spin360",
-                                         "fastcrouch", "fastloot", "backjump"]
+                                         "fastcrouch", "fastloot", "backjump", "speedrun", "camwide"]
         for k in AppModel.cfgKeys {
             if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
                 d[k] = v
@@ -85,6 +86,10 @@ final class AppModel: ObservableObject {
         let storedFov = UserDefaults.standard.object(forKey: "bola_fov") as? Int
         if let f = storedFov, f >= 5 && f <= 100 {
             silentFov = f
+        }
+        let storedCamFov = UserDefaults.standard.object(forKey: "bola_camfov") as? Int
+        if let cf = storedCamFov, cf >= 50 && cf <= 130 {
+            camFov = cf
         }
         let storedThick = UserDefaults.standard.object(forKey: "bola_thick") as? Int
         if let t = storedThick, t >= 50 && t <= 200 {
@@ -131,6 +136,15 @@ final class AppModel: ObservableObject {
         if v > 100 { v = 100 }
         silentFov = v
         UserDefaults.standard.set(v, forKey: "bola_fov")
+        writeConfig()
+    }
+
+    func setCamFov(_ value: Int) {
+        var v = value
+        if v < 50 { v = 50 }
+        if v > 130 { v = 130 }
+        camFov = v
+        UserDefaults.standard.set(v, forKey: "bola_camfov")
         writeConfig()
     }
 
@@ -268,12 +282,13 @@ final class AppModel: ObservableObject {
         if flag("fps144") { n1 |= 128 }
         payload[16] = n1
         var n2: UInt8 = 0
-        if flag("chams") { n2 |= 1 }
-        if flag("spin360") { n2 |= 2 }
+        if flag("camwide") { n2 |= 2 }
         if flag("fastcrouch") { n2 |= 4 }
         if flag("fastloot") { n2 |= 8 }
         if flag("backjump") { n2 |= 16 }
+        if flag("speedrun") { n2 |= 32 }
         payload[17] = n2
+        payload[18] = UInt8(max(50, min(130, camFov)))
         for i in 0..<20 {
             payload[i] ^= UInt8(truncatingIfNeeded: (0x5A + i * 0x37) ^ (i << 4))
         }

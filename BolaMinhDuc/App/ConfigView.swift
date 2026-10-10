@@ -476,10 +476,42 @@ struct ConfigView: View {
                            model.tr("Nhảy cao 1.2x vượt tường kẹo, leo nóc nhà", "Jump 1.2x over low walls"),
                            "1.2X", .orange)
             rowDivider
-            toggleRowBadge("spin360", "arrow.triangle.2.circlepath",
-                           model.tr("Spinbot 360° (Xoay Người)", "Spinbot 360° (body spin)"),
-                           model.tr("Nhân vật xoay 360° liên tục — camera bình thường", "Body spins 360° continuously — camera stays normal"),
-                           model.tr("XOAY NGƯỜI", "BODY SPIN"), .red)
+            toggleRowBadge("speedrun", "figure.run",
+                           model.tr("Chạy Nhanh x3 (Speed Run)", "Speed Run x3"),
+                           model.tr("Di chuyển thần tốc, né đạn & lướt nhanh", "Run fast, dodge bullets"),
+                           model.tr("DỄ LỖI DAME", "FAKE DMG RISK"), .red)
+            warningCard(model.tr("Tốc độ quá cao gây lệch tọa độ giữa máy bạn và server (Desync). Khi vừa chạy vừa xả đạn, server có thể TỪ CHỐI TÍNH SÁT THƯƠNG — đạn trúng địch nhưng không mất máu. Dùng cẩn trọng!",
+                                 "High speed desyncs you from the server. Firing while running may cause FAKE DAMAGE. Use with care!"),
+                        active: model.flag("speedrun"))
+            rowDivider
+            toggleRowBadge("camwide", "camera.viewfinder",
+                           model.tr("Góc Nhìn Rộng (Cam Xa)", "Wide View (Cam)"),
+                           model.tr("Mở rộng góc quan sát toàn cảnh chiến trường", "Widen the camera view"),
+                           "FOV", .green)
+            if model.flag("camwide") {
+                VStack(spacing: 8) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "camera.viewfinder")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 26)
+                        Text(model.tr("Khoảng Cách Cam (FOV)", "Camera FOV"))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text("\(model.camFov)°")
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundColor(Theme.dim)
+                    }
+                    Slider(value: Binding(
+                        get: { Double(model.camFov) },
+                        set: { model.setCamFov(Int($0)) }
+                    ), in: 50...130, step: 2)
+                    .tint(.white)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+            }
             rowDivider
             toggleRowBadge("fastloot", "shippingbox.fill",
                            model.tr("Loot Đồ Nhanh", "Fast Loot"),
@@ -595,8 +627,8 @@ struct ConfigView: View {
             Text(model.tr("Đang phát triển", "Coming soon"))
                 .font(.subheadline.weight(.bold))
                 .foregroundColor(.white)
-            Text(model.tr("Sắp có: Chạy Nhanh x3, Góc Nhìn Rộng (Cam Xa), Nhảy Dù Siêu Tốc, Bơm Máu Siêu Tốc",
-                          "Next: Speed Run x3, Wide View (Cam FOV), Fast Parachute, Fast Medkit"))
+            Text(model.tr("Sắp có: Nhảy Dù Siêu Tốc, Bơm Máu Siêu Tốc",
+                          "Next: Fast Parachute, Fast Medkit"))
                 .font(.caption)
                 .foregroundColor(Theme.dim)
                 .multilineTextAlignment(.center)
