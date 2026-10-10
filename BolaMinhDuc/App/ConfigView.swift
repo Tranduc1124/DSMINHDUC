@@ -446,11 +446,6 @@ struct ConfigView: View {
                                  "Straight bullets nullifies spread. The server may reject damage when firing continuously, causing FAKE DAMAGE (hits but no HP loss). Use with care!"),
                         active: model.flag("straight"))
             rowDivider
-            toggleRowBadge("buffdame", "flame.fill",
-                           model.tr("Tăng Sát Thương (Buff Dame)", "Damage Buff"),
-                           model.tr("Cường hóa chỉ số dame khi bắn trúng", "Boosts damage stats on hit"),
-                           model.tr("LỖI DAME CAO", "FAKE DMG"), .red)
-            rowDivider
             toggleRowBadge("fastfire", "bolt.fill",
                            model.tr("Bắn Siêu Tốc (Fast Fire)", "Fast Fire"),
                            model.tr("Tăng tốc độ nhả đạn của súng liên thanh", "Increases auto-fire rate"),

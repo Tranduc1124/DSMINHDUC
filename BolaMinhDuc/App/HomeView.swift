@@ -22,6 +22,7 @@ struct HomeView: View {
                 VStack(spacing: 16) {
                     hero
                     antibanCard
+                    resetGuestCard
                     gameList
                     hint
                 }
@@ -189,6 +190,54 @@ struct HomeView: View {
         .opacity(appear ? 1 : 0)
         .offset(y: appear ? 0 : 12)
         .animation(.easeOut(duration: 0.4).delay(0.06), value: appear)
+    }
+
+    // MARK: reset guest
+
+    private var resetGuestCard: some View {
+        Button {
+            model.resetGuest()
+        } label: {
+            HStack(spacing: 13) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .fill(Theme.cardHi)
+                        .frame(width: 44, height: 44)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                .stroke(Theme.border, lineWidth: 1)
+                        )
+                    Image(systemName: "person.crop.circle.badge.xmark")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.orange)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(model.tr("Reset Guest", "Reset Guest"))
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                    Text(model.tr("Xoá định danh khách — mở game tạo guest mới (tắt hẳn game trước!)",
+                                  "Wipe the guest identity — relaunch to create a new guest (force-close first!)"))
+                        .font(.caption2)
+                        .foregroundColor(Theme.dim)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Image(systemName: "arrow.counterclockwise.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.orange)
+            }
+            .padding(14)
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .opacity(appear ? 1 : 0)
+        .offset(y: appear ? 0 : 12)
+        .animation(.easeOut(duration: 0.4).delay(0.09), value: appear)
     }
 
     // MARK: games

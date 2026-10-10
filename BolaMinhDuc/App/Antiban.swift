@@ -61,4 +61,33 @@ enum Antiban {
         }
         return removed
     }
+
+    // MARK: - Reset Guest
+
+    /// "Reset Guest": wipes the local guest/account identity files (the
+    /// preferences plists Free Fire uses to bind the device to its guest
+    /// account) so the next launch creates a brand-new guest. The reference
+    /// tool ships the same trick behind its `resetGuest` config flag and
+    /// uses it for ban evasion. Best done with the game force-closed,
+    /// otherwise the running game can rewrite its preferences on exit.
+    @discardableResult
+    static func resetGuest() -> Int {
+        let fm = FileManager.default
+        var removed = 0
+        for game in [GameTarget.freefireTH, GameTarget.freefireMAX] {
+            guard let container = Installer.containerPath(for: game.rawValue) else { continue }
+            let prefs = container + "/Library/Preferences"
+            if let items = try? fm.contentsOfDirectory(atPath: prefs) {
+                for f in items {
+                    let low = f.lowercased()
+                    if low.contains("freefire") || low.contains("dts.") {
+                        if (try? fm.removeItem(atPath: prefs + "/" + f)) != nil {
+                            removed += 1
+                        }
+                    }
+                }
+            }
+        }
+        return removed
+    }
 }

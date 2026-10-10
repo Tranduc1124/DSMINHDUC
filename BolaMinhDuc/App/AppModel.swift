@@ -275,7 +275,6 @@ final class AppModel: ObservableObject {
         payload[14] = c14
         var n1: UInt8 = 0
         if flag("fastfire") { n1 |= 1 }
-        if flag("buffdame") { n1 |= 2 }
         if flag("fastreload") { n1 |= 4 }
         if flag("fastswap") { n1 |= 8 }
         if flag("fastpara") { n1 |= 16 }
@@ -587,6 +586,19 @@ extension AppModel {
             mhaActive = false
             append("mha: không khả dụng (mã \(th)/\(mx)) — dùng kernel exploit")
         }
+    }
+
+    /// Reset Guest: wipes the local guest/account identity plists so the next
+    /// game launch creates a brand-new guest (ban-evasion reset, same trick
+    /// the reference tool ships behind its `resetGuest` flag).
+    func resetGuest() {
+        let n = Antiban.resetGuest()
+        append("reset guest: đã xoá \(n) tệp định danh khách")
+        showToast(n > 0
+            ? tr("🧹 Đã reset guest — mở game để tạo khách mới (tắt hẳn game trước!)",
+                 "🧹 Guest reset — relaunch the game to create a new guest (force-close it first!)")
+            : tr("Không tìm thấy tệp guest — mở game 1 lần rồi thử lại",
+                 "No guest files found — launch the game once, then retry"))
     }
 
     func setAntiban(_ value: Bool) {
