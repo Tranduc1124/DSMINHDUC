@@ -21,4 +21,10 @@ enum AppBrand {
     static var symbol: String {
         return isIntexX ? "crown.fill" : "bolt.shield.fill"
     }
+
+    /// Link Group Telegram (theo target — Info.plist "BolaTelegram"; rỗng = ẩn).
+    static var telegramURL: String {
+        let v = (Bundle.main.object(forInfoDictionaryKey: "BolaTelegram") as? String) ?? ""
+        return v.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }

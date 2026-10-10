@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Main screen: hero card (logo + device stats) + game list. Monochrome theme.
 struct HomeView: View {
@@ -26,6 +27,7 @@ struct HomeView: View {
                     resetGuestCard
                     gameList
                     hint
+                    telegramCard
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
@@ -346,6 +348,59 @@ struct HomeView: View {
         .padding(.top, 2)
         .opacity(appear ? 1 : 0)
         .animation(.easeOut(duration: 0.4).delay(0.3), value: appear)
+    }
+
+    // MARK: telegram group (chỉ hiện ở bản có cấu hình BolaTelegram trong Info.plist)
+
+    @ViewBuilder
+    private var telegramCard: some View {
+        if !AppBrand.telegramURL.isEmpty {
+            Button {
+                if let url = URL(string: AppBrand.telegramURL) {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Theme.cardHi)
+                            .frame(width: 36, height: 36)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(Theme.border, lineWidth: 1)
+                            )
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(model.tr("Group Telegram", "Telegram Group"))
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                        Text(model.tr("Hỗ trợ • thông báo • cập nhật mới",
+                                      "Support • announcements • updates"))
+                            .font(.caption2)
+                            .foregroundColor(Theme.dim)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Theme.dimmer)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Theme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Theme.border, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .opacity(appear ? 1 : 0)
+            .animation(.easeOut(duration: 0.4).delay(0.35), value: appear)
+        }
     }
 
     // MARK: key bar (DEMO — real key system later)

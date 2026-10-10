@@ -36,6 +36,7 @@ targets:
         TserverPkgToken: pkg_6yNT9gnfWl9NjBw4vZw80CW9INCCUsNL
         BolaProduct: bola
         BolaOfflineMaxDays: 0
+        BolaTelegram: https://t.me/ntphax
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         UIApplicationSupportsIndirectInputEvents: true
