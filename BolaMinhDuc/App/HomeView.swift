@@ -369,7 +369,7 @@ struct HomeView: View {
                     .font(.system(size: 8, weight: .bold))
                     .tracking(0.8)
                     .foregroundColor(Theme.dimmer)
-                Text(model.keyMaskedName)
+                Text(model.keyMaskedName.isEmpty ? "—" : model.keyMaskedName)
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white)
                     .lineLimit(1)
@@ -379,7 +379,9 @@ struct HomeView: View {
             HStack(spacing: 5) {
                 Image(systemName: "clock.fill")
                     .font(.system(size: 10, weight: .bold))
-                Text(model.tr("\(model.keyHoursLeft) giờ", "\(model.keyHoursLeft)h"))
+                Text(model.keyHoursLeft < 0
+                     ? model.tr("--", "--")
+                     : model.tr("\(model.keyHoursLeft) giờ", "\(model.keyHoursLeft)h"))
                     .font(.system(size: 12, weight: .bold))
             }
             .foregroundColor(.white)

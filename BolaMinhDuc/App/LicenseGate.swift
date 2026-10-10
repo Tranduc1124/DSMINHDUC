@@ -36,8 +36,8 @@ final class LicenseGate: ObservableObject {
         // Nạp UI pack native của SDK (bảng nhập key / gate UI) — cần cho app sideload.
         TserverForceLoadNativeUiPacks()
 
-        // BẮT BUỘC: nạp package token trước khi xác thực.
-        APIClientConfigure("pkg_6yNT9gnfWl9NjBw4vZw80CW9INCCUsNL")
+        // BẮT BUỘC: nạp package token trước khi xác thực (mỗi bản 1 pkg).
+        APIClientConfigure(Self.packageToken)
 
         APIClient.startAuthorization({ [weak self] in
             DispatchQueue.main.async {
@@ -71,6 +71,27 @@ final class LicenseGate: ObservableObject {
     /// Key hiện tại (SDK giữ lease; app dùng cho các API server patch).
     var licenseKey: String {
         return APIClient.currentKeyText()
+    }
+
+    /// Package token theo target (BolaMinhDuc vs IntexX).
+    static var packageToken: String {
+        if let t = Bundle.main.object(forInfoDictionaryKey: "TserverPkgToken") as? String {
+            let s = t.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !s.isEmpty && !s.contains("REPLACE") { return s }
+        }
+        return "pkg_6yNT9gnfWl9NjBw4vZw80CW9INCCUsNL"
+    }
+
+    /// id sản phẩm cho kill-switch server ("bola" / "intexx").
+    static var productId: String {
+        let v = (Bundle.main.object(forInfoDictionaryKey: "BolaProduct") as? String) ?? "bola"
+        let s = v.trimmingCharacters(in: .whitespacesAndNewlines)
+        return s.isEmpty ? "bola" : s
+    }
+
+    /// Số ngày tối đa được phép không liên lạc được server (0 = không giới hạn).
+    static var offlineMaxDays: Int {
+        return (Bundle.main.object(forInfoDictionaryKey: "BolaOfflineMaxDays") as? Int) ?? 0
     }
 
     private func afterAuthorized() {

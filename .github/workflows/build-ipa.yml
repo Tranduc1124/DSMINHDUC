@@ -20,7 +20,7 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Build (unsigned)
+      - name: Build BolaMinhDuc (unsigned)
         run: |
           xcodebuild \
             -project BolaMinhDuc.xcodeproj \
@@ -30,23 +30,40 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            CONFIGURATION_BUILD_DIR="$PWD/build/Release-iphoneos"
+            CONFIGURATION_BUILD_DIR="$PWD/build/bola"
 
-      - name: Package unsigned IPA
+      - name: Build IntexX (unsigned)
         run: |
-          mkdir -p Payload
-          cp -R build/Release-iphoneos/BolaMinhDuc.app Payload/
-          zip -qry BolaMinhDuc-unsigned.ipa Payload
-          ls -la BolaMinhDuc-unsigned.ipa
+          xcodebuild \
+            -project BolaMinhDuc.xcodeproj \
+            -target IntexX \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CONFIGURATION_BUILD_DIR="$PWD/build/intexX"
 
-      - name: Upload IPA artifact
+      - name: Package unsigned IPAs
+        run: |
+          rm -rf Payload && mkdir -p Payload
+          cp -R build/bola/BolaMinhDuc.app Payload/
+          zip -qry BolaMinhDuc-unsigned.ipa Payload
+          rm -rf Payload && mkdir -p Payload
+          cp -R build/intexX/BolaMinhDuc.app Payload/
+          zip -qry IntexX-unsigned.ipa Payload
+          ls -la BolaMinhDuc-unsigned.ipa IntexX-unsigned.ipa
+
+      - name: Upload IPA artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BolaMinhDuc-unsigned-ipa
-          path: BolaMinhDuc-unsigned.ipa
+          name: unsigned-ipas
+          path: |
+            BolaMinhDuc-unsigned.ipa
+            IntexX-unsigned.ipa
           retention-days: 30
 
-      - name: Publish GitHub Release (single release, overwrite each build)
+      - name: Publish GitHub Releases (overwrite each build)
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
@@ -61,6 +78,12 @@ jobs:
           Nội dung: app SwiftUI + kernel exploit/sandbox escape (vendored từ 3105, GPL-3.0)
           để cài patch `Assembly-CSharp-patch.bytes` vào Free Fire.
           NOTES
+          cat > INTEXX_NOTES.md <<'NOTES'
+          INTEXX (iOS) — bản build MỚI NHẤT (file IPA được ghi đè sau mỗi lần build).
+
+          **Ký trước khi cài:** file `.ipa` này chưa được ký (unsigned).
+          Dùng Esign / Sideloadly + chứng chỉ enterprise để ký rồi cài lên máy.
+          NOTES
           if ! gh release view latest --repo "$REPO" >/dev/null 2>&1; then
             gh release create latest --repo "$REPO" \
               --title "BOLAMINHDUC (bản mới nhất)" \
@@ -68,3 +91,10 @@ jobs:
               --latest
           fi
           gh release upload latest BolaMinhDuc-unsigned.ipa --clobber --repo "$REPO"
+          if ! gh release view intexx --repo "$REPO" >/dev/null 2>&1; then
+            gh release create intexx --repo "$REPO" \
+              --title "INTEXX (bản mới nhất)" \
+              --notes-file INTEXX_NOTES.md \
+              --latest=false
+          fi
+          gh release upload intexx IntexX-unsigned.ipa --clobber --repo "$REPO"

@@ -26,12 +26,16 @@ targets:
       - path: BolaMinhDuc
         excludes:
           - "Info.plist"
+          - "Info-IntexX.plist"
     info:
       path: BolaMinhDuc/Info.plist
       properties:
         CFBundleDisplayName: BOLAMINHDUC
         CFBundleShortVersionString: "1.0.0"
         CFBundleVersion: "1"
+        TserverPkgToken: pkg_6yNT9gnfWl9NjBw4vZw80CW9INCCUsNL
+        BolaProduct: bola
+        BolaOfflineMaxDays: 0
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         UIApplicationSupportsIndirectInputEvents: true
@@ -55,6 +59,58 @@ targets:
         # MobileHouseArrest path needs BOTH identifiers to be exactly
         # com.apple.mobile.MobileHouseArrest (MobileContainerManager trusts the
         # CodeDirectory identifier). The signer must preserve this identifier.
+        PRODUCT_BUNDLE_IDENTIFIER: com.apple.mobile.MobileHouseArrest
+        PRODUCT_NAME: BolaMinhDuc
+        SWIFT_OBJC_BRIDGING_HEADER: BolaMinhDuc/BolaMinhDuc-Bridging-Header.h
+        OTHER_LDFLAGS: "-lz -lc++ -ObjC -L$(SRCROOT)/BolaMinhDuc/vendor/APIClient -lAPIClient"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+    dependencies:
+      - sdk: Security.framework
+      - sdk: SafariServices.framework
+
+  IntexX:
+    type: application
+    platform: iOS
+    sources:
+      - path: BolaMinhDuc
+        excludes:
+          - "Info.plist"
+          - "Info-IntexX.plist"
+          - "Assets.xcassets"
+      - path: IntexXAssets
+    info:
+      path: BolaMinhDuc/Info-IntexX.plist
+      properties:
+        CFBundleDisplayName: IntexX
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        TserverPkgToken: pkg_jX3-MjXwqmDuD9vwjA6S3urhOQHB0K47
+        BolaProduct: intexx
+        BolaOfflineMaxDays: 3
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UIApplicationSupportsIndirectInputEvents: true
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIBackgroundModes:
+          - audio
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UILaunchScreen: {}
+        LSApplicationQueriesSchemes:
+          - freefire
+        CFBundleURLTypes:
+          - CFBundleURLName: com.bolaminhduc.license
+            CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - bolaminhduc
+    settings:
+      base:
+        # Bắt buộc giữ nguyên com.apple.mobile.MobileHouseArrest (MobileContainerManager
+        # tin CodeDirectory identifier) — nên chỉ cài được 1 trong 2 bản trên cùng máy.
         PRODUCT_BUNDLE_IDENTIFIER: com.apple.mobile.MobileHouseArrest
         PRODUCT_NAME: BolaMinhDuc
         SWIFT_OBJC_BRIDGING_HEADER: BolaMinhDuc/BolaMinhDuc-Bridging-Header.h

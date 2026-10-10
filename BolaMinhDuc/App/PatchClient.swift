@@ -20,6 +20,7 @@ enum PatchClient {
         post("/api/client/check", [
             "version": version, "sha256": sha256,
             "licenseKey": license, "deviceId": device,
+            "product": LicenseGate.productId,
         ]) { j in
             done(j)
         }

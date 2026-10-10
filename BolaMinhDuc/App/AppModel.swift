@@ -47,9 +47,9 @@ final class AppModel: ObservableObject {
     // MARK: license key bar (DEMO — real key system later)
 
     /// masked key name shown on the home key bar (demo placeholder)
-    @Published var keyMaskedName: String = "BOLA-••••-9C41"
-    /// hours left on the key (demo placeholder)
-    @Published var keyHoursLeft: Int = 72
+    @Published var keyMaskedName: String = ""
+    /// giờ còn lại THẬT của key (-1 = chưa biết, lấy từ lease SDK)
+    @Published var keyHoursLeft: Int = -1
 
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
     private var cancelRequested = false
@@ -57,6 +57,7 @@ final class AppModel: ObservableObject {
     /// anti double-tap: ignore INJECT/RESTORE right after any completed action
     private var lastActionTime = Date.distantPast
     private var antibanTimer: Timer?
+    private var keyCardTimer: Timer?
     private let settleWindow: TimeInterval = 1.2
 
     // MARK: kernel single-flight state (main-thread only)
@@ -357,6 +358,15 @@ final class AppModel: ObservableObject {
         // fixes apply without reinstalling the app.
         refreshPatchRemote()
 
+        // card KEY ở Home: nạp giá trị THẬT (mask + giờ còn lại) và tự
+        // cập nhật mỗi phút.
+        refreshKeyCard()
+        if keyCardTimer == nil {
+            keyCardTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+                self?.refreshKeyCard()
+            }
+        }
+
         // MobileHouseArrest fast path: when the app was signed with the MHA
         // identity this grants container access with no kernel exploit and
         // works on iOS 16 (where the kernel offsets are missing).
@@ -375,6 +385,17 @@ final class AppModel: ObservableObject {
         // no access yet → run the exploit in the background
         append("auto: mở app → chạy exploit ở nền")
         ensureKernel { _ in }
+    }
+
+    /// Card KEY ở Home: mask THẬT (từ SDK) + giờ còn lại THẬT (từ lease SDK).
+    func refreshKeyCard() {
+        let k = LicenseGate.shared.licenseKey
+        if !k.isEmpty { keyMaskedName = k }
+        let exp = LicenseGate.shared.leaseExpiryUnix
+        if exp > 0 {
+            let secs = exp - Int(Date().timeIntervalSince1970)
+            keyHoursLeft = secs > 0 ? (secs + 3599) / 3600 : 0
+        }
     }
 
     private func startKernelRun() {
@@ -417,6 +438,13 @@ final class AppModel: ObservableObject {
 
     func inject() {
         guard !busy, !restoring, allowAction() else { return }
+        // kill-switch server: bản đã ngừng hoạt động → không cho inject
+        guard !VersionGate.shared.blocked else {
+            showToast(tr("⛔ Bản này đã ngừng hoạt động.",
+                         "⛔ This build has been stopped."))
+            append("inject: bản đã bị server kill")
+            return
+        }
         guard let patch = bundledPatch else {
             showToast(tr("Patch chưa sẵn sàng — kiểm tra mạng + key rồi mở lại app.",
                          "Patch not ready — check network + key, then reopen the app."))

@@ -26,6 +26,7 @@ struct BolaMinhDucApp: App {
             .onChange(of: gate.state) { st in
                 if st == .authorized {
                     VersionGate.shared.check()
+                    VersionGate.shared.startPeriodic()
                     model.bootstrap()
                 }
             }
