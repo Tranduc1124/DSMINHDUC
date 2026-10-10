@@ -588,17 +588,17 @@ extension AppModel {
         }
     }
 
-    /// Reset Guest: wipes the local guest/account identity plists so the next
-    /// game launch creates a brand-new guest (ban-evasion reset, same trick
-    /// the reference tool ships behind its `resetGuest` flag).
+    /// Reset Guest: forces `Documents/localConfig.json` ({"testCodePatch":
+    /// true,"resetGuest":true}) into both game containers - the game reads
+    /// the flag on next launch and resets its guest account.
     func resetGuest() {
         let n = Antiban.resetGuest()
-        append("reset guest: đã xoá \(n) tệp định danh khách")
+        append("reset guest: đã đặt cờ localConfig.json vào \(n) container")
         showToast(n > 0
-            ? tr("🧹 Đã reset guest — mở game để tạo khách mới (tắt hẳn game trước!)",
-                 "🧹 Guest reset — relaunch the game to create a new guest (force-close it first!)")
-            : tr("Không tìm thấy tệp guest — mở game 1 lần rồi thử lại",
-                 "No guest files found — launch the game once, then retry"))
+            ? tr("🧹 Đã đặt cờ reset guest — tắt hẳn game rồi MỞ LẠI để reset!",
+                 "🧹 Guest reset flag written — force-close the game and RELAUNCH it!")
+            : tr("Không ghi được — mở game 1 lần (để tạo container) rồi thử lại",
+                 "Could not write — launch the game once (container must exist) then retry"))
     }
 
     func setAntiban(_ value: Bool) {

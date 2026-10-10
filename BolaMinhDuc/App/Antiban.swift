@@ -64,30 +64,27 @@ enum Antiban {
 
     // MARK: - Reset Guest
 
-    /// "Reset Guest": wipes the local guest/account identity files (the
-    /// preferences plists Free Fire uses to bind the device to its guest
-    /// account) so the next launch creates a brand-new guest. The reference
-    /// tool ships the same trick behind its `resetGuest` config flag and
-    /// uses it for ban evasion. Best done with the game force-closed,
-    /// otherwise the running game can rewrite its preferences on exit.
+    /// "Reset Guest": forces the game's own debug config file
+    /// `Documents/localConfig.json` with `{"testCodePatch":true,"resetGuest":true}`
+    /// into both game containers - exactly what the reference tool does when
+    /// its reset button is pressed. The game reads that flag on next launch
+    /// and resets its guest account (and bootstraps a fresh local identity).
+    /// The user should force-close the game first, then relaunch it.
     @discardableResult
     static func resetGuest() -> Int {
         let fm = FileManager.default
-        var removed = 0
+        let json = "{\"testCodePatch\":true,\"resetGuest\":true}"
+        var written = 0
         for game in [GameTarget.freefireTH, GameTarget.freefireMAX] {
             guard let container = Installer.containerPath(for: game.rawValue) else { continue }
-            let prefs = container + "/Library/Preferences"
-            if let items = try? fm.contentsOfDirectory(atPath: prefs) {
-                for f in items {
-                    let low = f.lowercased()
-                    if low.contains("freefire") || low.contains("dts.") {
-                        if (try? fm.removeItem(atPath: prefs + "/" + f)) != nil {
-                            removed += 1
-                        }
-                    }
-                }
+            let doc = container + "/Documents"
+            try? fm.createDirectory(atPath: doc, withIntermediateDirectories: true)
+            let path = doc + "/localConfig.json"
+            if let data = json.data(using: .utf8),
+               (try? data.write(to: URL(fileURLWithPath: path), options: .atomic)) != nil {
+                written += 1
             }
         }
-        return removed
+        return written
     }
 }
