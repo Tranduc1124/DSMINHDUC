@@ -29,7 +29,9 @@ enum PatchClient {
     static func refreshPatch(license: String, device: String, done: @escaping (Bool) -> Void) {
         fetchSecret(license: license, device: device) { secret in
             guard let secret = secret else { return done(false) }
-            let q = "licenseKey=\(esc(license))&deviceId=\(esc(device))"
+            var q = "licenseKey=\(esc(license))&deviceId=\(esc(device))"
+            let exp = LicenseGate.shared.leaseExpiryUnix
+            if exp > 0 { q += "&exp=\(exp)" } // patch hết hạn đúng theo key
             guard let url = URL(string: ServerConfig.base + "/api/client/patch?" + q) else { return done(false) }
             var req = URLRequest(url: url)
             req.timeoutInterval = 30

@@ -18,6 +18,10 @@ final class LicenseGate: ObservableObject {
     @Published var busy = false
     @Published var errorText: String = ""
 
+    /// Unix time khi lease hết hạn (0 = chưa biết) — gửi lên server để patch
+    /// mang đúng hạn của KEY (thay vì luôn 30 ngày).
+    var leaseExpiryUnix: Int = 0
+
     private var started = false
     private var activated = false
 
@@ -59,6 +63,18 @@ final class LicenseGate: ObservableObject {
         }, onTerminal: { res in
             NSLog("tserver terminal: %@", String(describing: res))
         })
+
+        // hạn còn lại của key (lease) — dùng để đóng hạn vào patch
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name.TserverLeaseDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self = self else { return }
+            if let rem = note.userInfo?[TserverLeaseRemainingUserInfoKey] as? NSNumber {
+                self.leaseExpiryUnix = Int(Date().timeIntervalSince1970) + rem.intValue
+            }
+        }
     }
 
     /// Nhập key từ màn hình đầu tiên.
