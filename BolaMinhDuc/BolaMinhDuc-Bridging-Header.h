@@ -10,3 +10,4 @@
 #import "Exploit/mha.h"
 #import "App/GameLauncher.h"
 #import "vendor/APIClient/APIClient.h"
+#import <CommonCrypto/CommonCrypto.h>

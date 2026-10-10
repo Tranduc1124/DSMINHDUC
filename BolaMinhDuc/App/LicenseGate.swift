@@ -26,7 +26,7 @@ final class LicenseGate: ObservableObject {
         started = true
 
         NotificationCenter.default.addObserver(
-            forName: TserverStatusDidChangeNotification,
+            forName: NSNotification.Name.TserverStatusDidChange,
             object: nil,
             queue: .main
         ) { [weak self] note in
@@ -45,7 +45,7 @@ final class LicenseGate: ObservableObject {
             }
         }
 
-        APIClientStartAuthorization({ [weak self] in
+        APIClient.startAuthorization({ [weak self] in
             self?.state = .authorized
             self?.afterAuthorized()
         }, onRevoked: { [weak self] in
@@ -61,7 +61,7 @@ final class LicenseGate: ObservableObject {
         guard !k.isEmpty else { return }
         busy = true
         errorText = ""
-        APIClientConfirmKey(k, success: { [weak self] _ in
+        APIClient.confirmKey(k, success: { [weak self] _ in
             DispatchQueue.main.async {
                 self?.busy = false
                 self?.state = .authorized
@@ -78,11 +78,11 @@ final class LicenseGate: ObservableObject {
 
     /// Key hiện tại (SDK giữ lease; app dùng cho các API server patch).
     var licenseKey: String {
-        APIClient.currentKeyText() ?? ""
+        return APIClient.currentKeyText()
     }
 
     private func afterAuthorized() {
-        remainingText = APIClient.currentKeyRemainingText() ?? ""
+        remainingText = APIClient.currentKeyRemainingText()
         if let info = APIClient.currentKeyInfo() {
             NSLog("tserver key info: %@", String(describing: info))
         }
