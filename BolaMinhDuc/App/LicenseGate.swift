@@ -1,8 +1,12 @@
 import Foundation
 import UIKit
 
-/// Cổng license: chưa nhập key đúng — chỉ hiện màn hình nhập key,
-/// vào giao diện chính sau khi Tserver xác nhận (lease hợp lệ).
+/// Cổng license — SDK Tserver 2.1.3 (activation-terminal), gói tối giản:
+/// - App CHỈ CHỜ; bảng nhập key là của hệ thống (SDK/UI pack tự hiện).
+/// - onAuthorized → vào giao diện chính; onRevoked → quay về màn chờ.
+/// - Trước khi xác thực BẮT BUỘC phải nạp package token bằng
+///   APIClientConfigure(...) — thiếu bước này SDK báo
+///   "Thiếu cấu hình xác thực." (missing_auth_config) và không gửi request nào.
 final class LicenseGate: ObservableObject {
     static let shared = LicenseGate()
 
@@ -29,83 +33,34 @@ final class LicenseGate: ObservableObject {
         guard !started else { return }
         started = true
 
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name.TserverStatusDidChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] note in
-            guard let self = self else { return }
-            // LƯU Ý: bản .a SDK hiện tại KHÔNG export symbol chuỗi
-            // TserverStatusStringUserInfoKey — dùng key enum (NSNumber) thay thế.
-            var typed: TserverStatusCode = .unknown
-            if let n = note.userInfo?[TserverStatusEnumUserInfoKey] as? NSNumber,
-               let t = TserverStatusCode(rawValue: n.intValue) {
-                typed = t
-            } else if let res = note.userInfo?[TserverResultUserInfoKey] as? [String: Any],
-                      let st = res["status"] as? String {
-                typed = TserverStatusCodeFromString(st)
-            }
-            self.statusText = TserverStatusCodeString(typed)
-            if TserverStatusCodeIsValid(typed) {
+        // BẮT BUỘC: nạp package token trước khi xác thực.
+        APIClientConfigure("pkg_6yNT9gnfWl9NjBw4vZw80CW9INCCUsNL")
+
+        APIClient.startAuthorization({ [weak self] in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
                 self.state = .authorized
+                self.errorText = ""
                 self.afterAuthorized()
-            } else {
-                // needKey / expired / revoked / device mismatch / maintenance… -> màn key
+            }
+        }, onRevoked: { [weak self] in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
                 self.state = .needKey
+                self.statusText = "Lease"
+                self.errorText = "Key hết hạn hoặc bị thu hồi — nhập key mới."
             }
-        }
-
-        APIClient.startAuthorization({ [weak self] in
-            self?.state = .authorized
-            self?.afterAuthorized()
-        }, onRevoked: { [weak self] in
-            self?.state = .needKey
-        }, onTerminal: { res in
+        }, onTerminal: { [weak self] res in
             NSLog("tserver terminal: %@", String(describing: res))
-        })
-
-        // hạn còn lại của key (lease) — dùng để đóng hạn vào patch
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name.TserverLeaseDidChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] note in
-            guard let self = self else { return }
-            if let rem = note.userInfo?[TserverLeaseRemainingUserInfoKey] as? NSNumber {
-                self.leaseExpiryUnix = Int(Date().timeIntervalSince1970) + rem.intValue
-            }
-        }
-    }
-
-    /// Mở lại luồng xác thực của SDK (hiện bảng nhập key của hệ thống).
-    func startIfNeeded() {
-        APIClient.startAuthorization({ [weak self] in
-            self?.state = .authorized
-            self?.afterAuthorized()
-        }, onRevoked: { [weak self] in
-            self?.state = .needKey
-        }, onTerminal: { res in
-            NSLog("tserver terminal: %@", String(describing: res))
-        })
-    }
-
-    /// Nhập key từ màn hình đầu tiên.
-    func confirm(_ key: String) {
-        let k = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !k.isEmpty else { return }
-        busy = true
-        errorText = ""
-        APIClient.confirmKey(k, success: { [weak self] _ in
             DispatchQueue.main.async {
-                self?.busy = false
-                self?.state = .authorized
-                self?.afterAuthorized()
-            }
-        }, failure: { [weak self] res in
-            DispatchQueue.main.async {
-                self?.busy = false
+                guard let self = self else { return }
                 let st = (res["status"] as? String) ?? ""
-                self?.errorText = st.isEmpty ? "Key không hợp lệ hoặc đã hết hạn." : "Key lỗi: \(st)"
+                let msg = (res["message"] as? String) ?? ""
+                self.statusText = st
+                if !msg.isEmpty { self.errorText = msg }
+                // terminal = lỗi cuối của luồng kích hoạt (key sai, hết hạn,
+                // bảo trì, thiếu cấu hình…) — vẫn ở màn chờ xác thực.
+                if self.state != .authorized { self.state = .needKey }
             }
         })
     }
@@ -119,6 +74,10 @@ final class LicenseGate: ObservableObject {
         remainingText = APIClient.currentKeyRemainingText()
         if let info = APIClient.currentKeyInfo() {
             NSLog("tserver key info: %@", String(describing: info))
+            // hạn còn lại của key → đóng vào patch (server cap 30 ngày).
+            if let rem = info["remainingSeconds"] as? NSNumber, rem.intValue > 0 {
+                leaseExpiryUnix = Int(Date().timeIntervalSince1970) + rem.intValue
+            }
         }
         // đăng ký thiết bị với server patch (một lần / phiên)
         guard !activated else { return }

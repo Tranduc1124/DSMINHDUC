@@ -49,7 +49,7 @@ targets:
           - CFBundleURLName: com.bolaminhduc.license
             CFBundleTypeRole: Editor
             CFBundleURLSchemes:
-              - minhduc
+              - bolaminhduc
     settings:
       base:
         # MobileHouseArrest path needs BOTH identifiers to be exactly

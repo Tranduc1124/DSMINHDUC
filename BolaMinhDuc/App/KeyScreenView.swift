@@ -50,21 +50,6 @@ struct KeyScreenView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                // nếu bảng nhập key của hệ thống chưa hiện, bấm để mở lại
-                Button {
-                    LicenseGate.shared.startIfNeeded()
-                } label: {
-                    Text("MỞ BẢNG NHẬP KEY")
-                        .font(.system(size: 13, weight: .heavy))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 11)
-                        .background(Color.white)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 10)
-
                 Spacer()
                 Text("Chưa có key? Liên hệ admin để mua.")
                     .font(.caption2)
