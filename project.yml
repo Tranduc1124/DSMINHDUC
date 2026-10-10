@@ -53,8 +53,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.apple.mobile.MobileHouseArrest
         PRODUCT_NAME: BolaMinhDuc
         SWIFT_OBJC_BRIDGING_HEADER: BolaMinhDuc/BolaMinhDuc-Bridging-Header.h
-        OTHER_LDFLAGS: "-lz -lc++"
+        OTHER_LDFLAGS: "-lz -lc++ -ObjC"
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
     dependencies:
       - sdk: Security.framework
+      - path: BolaMinhDuc/vendor/APIClient/libAPIClient.a
