@@ -23,7 +23,9 @@ final class AppModel: ObservableObject {
     private var toastToken = 0
 
     /// feature toggles shown in the app (pushed to the game live + persisted)
-    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock", "showfov", "team", "straight"]
+    static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock", "showfov", "team", "straight",
+                          "fastfire", "buffdame", "fastreload", "fastswap", "nograss", "nofog", "highjump", "fps144",
+                          "chams", "spin360", "fastcrouch", "fastloot", "backjump"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
@@ -64,11 +66,15 @@ final class AppModel: ObservableObject {
 
     init() {
         var d: [String: Bool] = [:]
+        let offByDefault: Set<String> = ["aim", "silent", "skipknock", "straight",
+                                         "fastfire", "buffdame", "fastreload", "fastswap", "nograss",
+                                         "nofog", "highjump", "fps144", "chams", "spin360",
+                                         "fastcrouch", "fastloot", "backjump"]
         for k in AppModel.cfgKeys {
             if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
                 d[k] = v
             } else {
-                d[k] = (k == "aim" || k == "silent" || k == "skipknock" || k == "straight") ? false : true
+                d[k] = !offByDefault.contains(k)
             }
         }
         cfgFlags = d
@@ -186,11 +192,13 @@ final class AppModel: ObservableObject {
 
     // MARK: - binary config (app -> game)
     //
-    // bolacfg.bin = 16 obfuscated payload bytes + 4-byte CRC32 (little endian).
+    // bolacfg.bin = 20 obfuscated payload bytes + 4-byte CRC32 (little endian).
     // payload: "BOLA" | ver=1 | flags | - | 0...
     // flags bits: 0 box, 1 line, 2 hp, 3 name, 4 dist, 5 bot, 7 count.
     // byte 7: bit0 aim, bit1 skeleton bones, bit2 silent aim; byte 8: aim bone (0 head, 1 neck, 2 chest).
     // bytes 9..14: RGB565 box / line / bone colors (0 = default red).
+    // byte 16: misc flags 1 (fastfire, buffdame, fastreload, fastswap, nograss, nofog, highjump, fps144).
+    // byte 17: misc flags 2 (chams, spin360, fastcrouch, fastloot, backjump).
     // The payload is XOR-ed with a per-index keystream, so a hand-edited file
     // without a matching checksum is ignored by the running patch.
 
@@ -213,7 +221,7 @@ final class AppModel: ObservableObject {
     /// guaranteed fresh when the game starts.
     func writeConfig() {
         guard let container = Installer.containerPath(for: game.rawValue) else { return }
-        var payload = [UInt8](repeating: 0, count: 16)
+        var payload = [UInt8](repeating: 0, count: 20)
         payload[0] = 0x42
         payload[1] = 0x4F
         payload[2] = 0x4C
@@ -249,7 +257,24 @@ final class AppModel: ObservableObject {
         payload[12] = c12
         payload[13] = c13
         payload[14] = c14
-        for i in 0..<16 {
+        var n1: UInt8 = 0
+        if flag("fastfire") { n1 |= 1 }
+        if flag("buffdame") { n1 |= 2 }
+        if flag("fastreload") { n1 |= 4 }
+        if flag("fastswap") { n1 |= 8 }
+        if flag("nograss") { n1 |= 16 }
+        if flag("nofog") { n1 |= 32 }
+        if flag("highjump") { n1 |= 64 }
+        if flag("fps144") { n1 |= 128 }
+        payload[16] = n1
+        var n2: UInt8 = 0
+        if flag("chams") { n2 |= 1 }
+        if flag("spin360") { n2 |= 2 }
+        if flag("fastcrouch") { n2 |= 4 }
+        if flag("fastloot") { n2 |= 8 }
+        if flag("backjump") { n2 |= 16 }
+        payload[17] = n2
+        for i in 0..<20 {
             payload[i] ^= UInt8(truncatingIfNeeded: (0x5A + i * 0x37) ^ (i << 4))
         }
         var data = payload

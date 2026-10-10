@@ -437,9 +437,79 @@ struct ConfigView: View {
 
     private var miscCard: some View {
         VStack(spacing: 0) {
-            toggleRowInline("straight", "scope", model.tr("Đạn thẳng (thử nghiệm)", "Straight bullets (experimental)"),
-                            model.tr("Đang kiểm tra từng bước — bản sau",
-                                     "Step-by-step testing — next build"))
+            toggleRowBadge("straight", "scope",
+                           model.tr("Đạn thẳng (No Recoil 0%)", "Straight bullets (No Recoil 0%)"),
+                           model.tr("Triệt tiêu độ tỏa đạn — đạn bay thẳng tắp",
+                                    "Eliminates bullet spread — bullets fly straight"),
+                           model.tr("ĐỂ LỖI DAME", "FAKE DMG RISK"), .red)
+            warningCard(model.tr("Bật Đạn Thẳng can thiệp triệt tiêu độ tỏa đạn. Máy chủ có thể từ chối tính sát thương khi xả đạn liên tục dẫn tới SÁT THƯƠNG ẢO / LỖI DAME (bắn trúng địch nhưng không mất máu). Khuyên dùng cẩn trọng!",
+                                 "Straight bullets nullifies spread. The server may reject damage when firing continuously, causing FAKE DAMAGE (hits but no HP loss). Use with care!"),
+                        active: model.flag("straight"))
+            rowDivider
+            toggleRowBadge("buffdame", "flame.fill",
+                           model.tr("Tăng Sát Thương (Buff Dame)", "Damage Buff"),
+                           model.tr("Cường hóa chỉ số dame khi bắn trúng", "Boosts damage stats on hit"),
+                           model.tr("LỖI DAME CAO", "FAKE DMG"), .red)
+            rowDivider
+            toggleRowBadge("fastfire", "bolt.fill",
+                           model.tr("Bắn Siêu Tốc (Fast Fire)", "Fast Fire"),
+                           model.tr("Tăng tốc độ nhả đạn của súng liên thanh", "Increases auto-fire rate"),
+                           "0.35X", .orange)
+            rowDivider
+            toggleRowBadge("fastswap", "arrow.left.arrow.right",
+                           model.tr("Đổi Súng Nhanh", "Fast Weapon Swap"),
+                           model.tr("Triệt tiêu delay đổi súng, bắn liền tục", "Removes swap delay"),
+                           model.tr("0s DELAY", "0s DELAY"), .orange)
+            rowDivider
+            toggleRowBadge("fastreload", "arrow.clockwise",
+                           model.tr("Nạp Đạn Nhanh", "Fast Reload"),
+                           model.tr("Rút ngắn thời gian nạp đạn xuống 0.05s", "Reload time down to 0.05s"),
+                           "0.05s", .orange)
+            rowDivider
+            toggleRowBadge("backjump", "arrow.up.forward",
+                           model.tr("BACKJUMP", "BACKJUMP"),
+                           model.tr("Khử gia tốc rơi, nhảy giật lùi né đạn", "No fall acceleration, back jump"),
+                           model.tr("KHỬ RƠI", "NO FALL"), .orange)
+            rowDivider
+            toggleRowBadge("highjump", "arrow.up.circle.fill",
+                           model.tr("Nhảy Cao (High Jump)", "High Jump"),
+                           model.tr("Nhảy cao 1.2x vượt tường kẹo, leo nóc nhà", "Jump 1.2x over low walls"),
+                           "1.2X", .orange)
+            rowDivider
+            toggleRowBadge("spin360", "arrow.triangle.2.circlepath",
+                           model.tr("Đảo Như PC 360°", "PC-like 360° Spin"),
+                           model.tr("Quay đầu tức thì không quán tính", "Instant turn, no inertia"),
+                           "9999°", .orange)
+            rowDivider
+            toggleRowBadge("nograss", "leaf.fill",
+                           model.tr("Khử Cỏ 100%", "No Grass"),
+                           model.tr("Làm phẳng bụi cỏ cao & vừa toàn map", "Flattens tall grass everywhere"),
+                           model.tr("NO GRASS", "NO GRASS"), .green)
+            rowDivider
+            toggleRowBadge("nofog", "cloud.fill",
+                           model.tr("Khử Sương Mù", "No Fog"),
+                           model.tr("Xóa sương mù, mở rộng tầm nhìn xa", "Removes fog, widens view"),
+                           "1000M", .orange)
+            rowDivider
+            toggleRowBadge("chams", "person.crop.rectangle.fill",
+                           model.tr("Chams Viền Đỏ", "Red Chams Outline"),
+                           model.tr("Địch phát sáng viền đỏ xuyên vật thể", "Enemies glow red through walls"),
+                           model.tr("CHAMS", "CHAMS"), .orange)
+            rowDivider
+            toggleRowBadge("fastloot", "shippingbox.fill",
+                           model.tr("Loot Đồ Nhanh", "Fast Loot"),
+                           model.tr("Tối ưu nhặt đồ, chạy lướt qua là hút", "Instant auto pickup"),
+                           model.tr("AUTO LOOT", "AUTO LOOT"), .orange)
+            rowDivider
+            toggleRowBadge("fastcrouch", "figure.walk",
+                           model.tr("Ngồi Chạy Siêu Tốc", "Fast Crouch Run"),
+                           model.tr("Di chuyển nhanh ở tư thế ngồi", "Fast movement while crouched"),
+                           model.tr("FAST CROUCH", "FAST CROUCH"), .orange)
+            rowDivider
+            toggleRowBadge("fps144", "speedometer",
+                           model.tr("Mở Khóa 144 FPS", "Unlock 144 FPS"),
+                           model.tr("Mở khóa tần số quét, hình ảnh siêu mượt", "Unlocks high refresh rate"),
+                           "144 FPS", .green)
         }
         .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -447,6 +517,89 @@ struct ConfigView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Theme.border, lineWidth: 1)
         )
+    }
+
+    private func toggleRowBadge(_ key: String, _ icon: String,
+                                _ title: String, _ subtitle: String,
+                                _ badge: String, _ badgeColor: Color) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 26)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    Text(badge)
+                        .font(.system(size: 9, weight: .heavy))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(badgeColor.opacity(0.85))
+                        .clipShape(Capsule())
+                        .layoutPriority(1)
+                }
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundColor(Theme.dimmer)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Toggle("", isOn: Binding(
+                get: { model.flag(key) },
+                set: { model.setFlag(key, $0) }
+            ))
+            .labelsHidden()
+            .tint(.white)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+
+    private func warningCard(_ text: String, active: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                Text(model.tr("CẢNH BÁO NGUY HIỂM:", "WARNING:"))
+                    .font(.caption.weight(.heavy))
+                    .foregroundColor(.orange)
+                Spacer()
+                if active {
+                    Text(model.tr("ĐANG BẬT", "ACTIVE"))
+                        .font(.system(size: 9, weight: .heavy))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.orange)
+                        .clipShape(Capsule())
+                }
+            }
+            Text(text)
+                .font(.caption2)
+                .foregroundColor(Theme.dim)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .background(Color.orange.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.orange.opacity(0.6), lineWidth: 1)
+        )
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+    }
+
+    private var rowDivider: some View {
+        Rectangle()
+            .fill(Theme.border)
+            .frame(height: 1)
+            .padding(.leading, 52)
     }
 
     private var comingSoonCard: some View {
@@ -457,8 +610,8 @@ struct ConfigView: View {
             Text(model.tr("Đang phát triển", "Coming soon"))
                 .font(.subheadline.weight(.bold))
                 .foregroundColor(.white)
-            Text(model.tr("Các chức năng mới sẽ được thêm trong bản cập nhật sau",
-                          "New features will arrive in a future update"))
+            Text(model.tr("Sắp có: Chạy Nhanh x3, Góc Nhìn Rộng (Cam Xa), Nhảy Dù Siêu Tốc, Bơm Máu Siêu Tốc",
+                          "Next: Speed Run x3, Wide View (Cam FOV), Fast Parachute, Fast Medkit"))
                 .font(.caption)
                 .foregroundColor(Theme.dim)
                 .multilineTextAlignment(.center)
