@@ -26,7 +26,7 @@ final class AppModel: ObservableObject {
     static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock", "showfov", "team", "straight",
                           "fastfire", "buffdame", "fastreload", "fastswap", "nograss", "nofog", "highjump", "fps144",
                           "chams", "spin360", "fastcrouch", "fastloot", "backjump", "speedrun", "camwide",
-                          "fastpara", "emote"]
+                          "emote"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
@@ -77,7 +77,7 @@ final class AppModel: ObservableObject {
                                          "fastfire", "buffdame", "fastreload", "fastswap", "nograss",
                                          "nofog", "highjump", "fps144", "chams", "spin360",
                                          "fastcrouch", "fastloot", "backjump", "speedrun", "camwide",
-                                         "fastpara", "emote"]
+                                         "emote"]
         for k in AppModel.cfgKeys {
             if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
                 d[k] = v
@@ -295,7 +295,6 @@ final class AppModel: ObservableObject {
         var n1: UInt8 = 0
         if flag("fastfire") { n1 |= 1 }
         if flag("fastswap") { n1 |= 8 }
-        if flag("fastpara") { n1 |= 16 }
         if flag("emote") { n1 |= 32 }
         if flag("highjump") { n1 |= 64 }
         if flag("fps144") { n1 |= 128 }

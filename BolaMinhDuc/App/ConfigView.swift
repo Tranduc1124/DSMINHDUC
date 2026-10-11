@@ -531,11 +531,6 @@ struct ConfigView: View {
                 .padding(.vertical, 11)
             }
             rowDivider
-            toggleRowBadge("fastpara", "wind",
-                           model.tr("Nhảy Dù Siêu Tốc", "Fast Parachute"),
-                           model.tr("Rơi tự do & tiếp đất cực nhanh", "Fast fall & instant landing"),
-                           model.tr("RƠI NHANH", "FAST FALL"), .orange)
-            rowDivider
             toggleRowBadge("emote", "figure.dance",
                            model.tr("Điệu Nhảy Booyah", "Booyah Dance"),
                            model.tr("Kích hoạt nhảy Booyah & Carnival liên tục", "Trigger Booyah & Carnival dance"),
