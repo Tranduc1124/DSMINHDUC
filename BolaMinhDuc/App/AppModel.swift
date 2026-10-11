@@ -30,7 +30,9 @@ final class AppModel: ObservableObject {
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
-    @Published var silentFov: Int = 140
+    @Published var silentFov: Int = 30
+    /// FOV riêng của Aimbot (% chiều cao màn hình)
+    @Published var aimFov: Int = 30
     @Published var camFov: Int = 88
     @Published var espThick: Int = 100
 
@@ -90,8 +92,12 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "bola_antiban")
         aimBone = UserDefaults.standard.integer(forKey: "bola_bone")
         let storedFov = UserDefaults.standard.object(forKey: "bola_fov") as? Int
-        if let f = storedFov, f >= 10 && f <= 255 {
+        if let f = storedFov, f >= 5 && f <= 100 {
             silentFov = f
+        }
+        let storedAimFov = UserDefaults.standard.object(forKey: "bola_aimfov") as? Int
+        if let f = storedAimFov, f >= 5 && f <= 100 {
+            aimFov = f
         }
         let storedCamFov = UserDefaults.standard.object(forKey: "bola_camfov") as? Int
         if let cf = storedCamFov, cf >= 50 && cf <= 130 {
@@ -142,6 +148,15 @@ final class AppModel: ObservableObject {
         if v > 100 { v = 100 }
         silentFov = v
         UserDefaults.standard.set(v, forKey: "bola_fov")
+        writeConfig()
+    }
+
+    func setAimFov(_ value: Int) {
+        var v = value
+        if v < 5 { v = 5 }
+        if v > 100 { v = 100 }
+        aimFov = v
+        UserDefaults.standard.set(v, forKey: "bola_aimfov")
         writeConfig()
     }
 
@@ -267,7 +282,7 @@ final class AppModel: ObservableObject {
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
         payload[6] = UInt8(max(50, min(200, espThick)))
-        payload[15] = UInt8(max(10, min(255, silentFov)))
+        payload[15] = UInt8(max(5, min(100, silentFov)))
         let (c9, c10) = pack565("box")
         let (c11, c12) = pack565("line")
         let (c13, c14) = pack565("bone")
@@ -291,6 +306,7 @@ final class AppModel: ObservableObject {
         if flag("speedrun") { n2 |= 32 }
         payload[17] = n2
         payload[18] = UInt8(max(50, min(130, camFov)))
+        payload[19] = UInt8(max(5, min(100, aimFov)))
         for i in 0..<20 {
             payload[i] ^= UInt8(truncatingIfNeeded: (0x5A + i * 0x37) ^ (i << 4))
         }
