@@ -26,13 +26,15 @@ final class AppModel: ObservableObject {
     static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock", "showfov", "team", "straight",
                           "fastfire", "buffdame", "fastreload", "fastswap", "nograss", "nofog", "highjump", "fps144",
                           "chams", "spin360", "fastcrouch", "fastloot", "backjump", "speedrun", "camwide",
-                          "emote"]
+                          "wallshot", "emote"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
     @Published var silentFov: Int = 30
     /// FOV riêng của Aimbot (% chiều cao màn hình)
     @Published var aimFov: Int = 30
+    /// Tỉ lệ silent vào ĐẦU khi chọn Head (%)
+    @Published var headRate: Int = 100
     @Published var camFov: Int = 88
     @Published var espThick: Int = 100
 
@@ -77,7 +79,7 @@ final class AppModel: ObservableObject {
                                          "fastfire", "buffdame", "fastreload", "fastswap", "nograss",
                                          "nofog", "highjump", "fps144", "chams", "spin360",
                                          "fastcrouch", "fastloot", "backjump", "speedrun", "camwide",
-                                         "emote"]
+                                         "wallshot", "emote"]
         for k in AppModel.cfgKeys {
             if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
                 d[k] = v
@@ -98,6 +100,10 @@ final class AppModel: ObservableObject {
         let storedAimFov = UserDefaults.standard.object(forKey: "bola_aimfov") as? Int
         if let f = storedAimFov, f >= 5 && f <= 100 {
             aimFov = f
+        }
+        let storedHeadRate = UserDefaults.standard.object(forKey: "bola_headrate") as? Int
+        if let h = storedHeadRate, h >= 10 && h <= 100 {
+            headRate = h
         }
         let storedCamFov = UserDefaults.standard.object(forKey: "bola_camfov") as? Int
         if let cf = storedCamFov, cf >= 50 && cf <= 130 {
@@ -157,6 +163,15 @@ final class AppModel: ObservableObject {
         if v > 100 { v = 100 }
         aimFov = v
         UserDefaults.standard.set(v, forKey: "bola_aimfov")
+        writeConfig()
+    }
+
+    func setHeadRate(_ value: Int) {
+        var v = value
+        if v < 10 { v = 10 }
+        if v > 100 { v = 100 }
+        headRate = v
+        UserDefaults.standard.set(v, forKey: "bola_headrate")
         writeConfig()
     }
 
@@ -256,7 +271,7 @@ final class AppModel: ObservableObject {
     /// guaranteed fresh when the game starts.
     func writeConfig() {
         guard let container = Installer.containerPath(for: game.rawValue) else { return }
-        var payload = [UInt8](repeating: 0, count: 20)
+        var payload = [UInt8](repeating: 0, count: 24)
         payload[0] = 0x42
         payload[1] = 0x4F
         payload[2] = 0x4C
@@ -279,6 +294,7 @@ final class AppModel: ObservableObject {
         if flag("showfov") { extra |= 16 }
         if flag("team") { extra |= 32 }
         if flag("straight") { extra |= 64 }
+        if flag("wallshot") { extra |= 128 }
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
         payload[6] = UInt8(max(50, min(200, espThick)))
@@ -306,7 +322,8 @@ final class AppModel: ObservableObject {
         payload[17] = n2
         payload[18] = UInt8(max(50, min(130, camFov)))
         payload[19] = UInt8(max(5, min(100, aimFov)))
-        for i in 0..<20 {
+        payload[20] = UInt8(max(10, min(100, headRate)))
+        for i in 0..<24 {
             payload[i] ^= UInt8(truncatingIfNeeded: (0x5A + i * 0x37) ^ (i << 4))
         }
         var data = payload

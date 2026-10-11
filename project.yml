@@ -90,6 +90,7 @@ targets:
         TserverPkgToken: pkg_mTFXvnoFw3wHbPCO44Sxvb53LKNCJghQ
         BolaProduct: intexx
         BolaOfflineMaxDays: 3
+        BolaTelegram: https://t.me/intexxcheat
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         UIApplicationSupportsIndirectInputEvents: true

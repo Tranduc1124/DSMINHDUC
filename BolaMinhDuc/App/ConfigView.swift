@@ -312,6 +312,41 @@ struct ConfigView: View {
                         .frame(height: 1)
                         .padding(.leading, 52)
                     boneSection
+                    if model.aimBone == 0 {
+                        Rectangle()
+                            .fill(Theme.border)
+                            .frame(height: 1)
+                            .padding(.leading, 52)
+                        VStack(spacing: 8) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "target")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 26)
+                                Text(model.tr("Tỉ lệ vào đầu", "Headshot ratio"))
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(.white)
+                                Spacer()
+                                Text("\(model.headRate)%")
+                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                    .foregroundColor(Theme.dim)
+                            }
+                            Slider(value: Binding(
+                                get: { Double(model.headRate) },
+                                set: { model.setHeadRate(Int($0)) }
+                            ), in: 10...100, step: 5)
+                            .tint(.white)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                    }
+                    Rectangle()
+                        .fill(Theme.border)
+                        .frame(height: 1)
+                        .padding(.leading, 52)
+                    toggleRowInline("wallshot", "cube.transparent",
+                                    model.tr("Xuyên Tường (thử nghiệm)", "Through-wall (beta)"),
+                                    model.tr("Đạn bắt đầu sát địch — bắn xuyên vật cản", "Bullet starts near the enemy — pierces cover"))
                     if model.flag("silent") {
                         Rectangle()
                             .fill(Theme.border)
