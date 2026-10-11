@@ -30,7 +30,7 @@ final class AppModel: ObservableObject {
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
-    @Published var silentFov: Int = 30
+    @Published var silentFov: Int = 140
     @Published var camFov: Int = 88
     @Published var espThick: Int = 100
 
@@ -90,7 +90,7 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "bola_antiban")
         aimBone = UserDefaults.standard.integer(forKey: "bola_bone")
         let storedFov = UserDefaults.standard.object(forKey: "bola_fov") as? Int
-        if let f = storedFov, f >= 5 && f <= 100 {
+        if let f = storedFov, f >= 10 && f <= 255 {
             silentFov = f
         }
         let storedCamFov = UserDefaults.standard.object(forKey: "bola_camfov") as? Int
@@ -267,7 +267,7 @@ final class AppModel: ObservableObject {
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
         payload[6] = UInt8(max(50, min(200, espThick)))
-        payload[15] = UInt8(max(5, min(100, silentFov)))
+        payload[15] = UInt8(max(10, min(255, silentFov)))
         let (c9, c10) = pack565("box")
         let (c11, c12) = pack565("line")
         let (c13, c14) = pack565("bone")

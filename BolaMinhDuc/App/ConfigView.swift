@@ -327,14 +327,14 @@ struct ConfigView: View {
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundColor(.white)
                                 Spacer()
-                                Text("\(model.silentFov)%")
+                                Text("\(model.silentFov)px")
                                     .font(.system(size: 13, weight: .bold, design: .monospaced))
                                     .foregroundColor(Theme.dim)
                             }
                             Slider(value: Binding(
                                 get: { Double(model.silentFov) },
                                 set: { model.setSilentFov(Int($0)) }
-                            ), in: 5...100, step: 5)
+                            ), in: 10...255, step: 5)
                             .tint(.white)
                         }
                         .padding(.horizontal, 14)
