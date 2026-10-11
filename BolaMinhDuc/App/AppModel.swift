@@ -43,6 +43,8 @@ final class AppModel: ObservableObject {
 
     /// true when MobileHouseArrest granted container access (no kernel needed)
     @Published var mhaActive: Bool = false
+    /// Đã THỰC SỰ ghi được file vào game chưa (probe thật — không đoán)
+    @Published var writeOK: Bool = false
 
     // MARK: license key bar (DEMO — real key system later)
 
@@ -558,6 +560,14 @@ final class AppModel: ObservableObject {
     func refreshInstalled() {
         installedInfo = Installer.installedPatchInfo(for: game)
         patchInstalled = Installer.patchExists(for: game)
+        // Tương tích CHỈ "Tốt" khi viết THẬT được file vào máy game.
+        let g = game
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let ok = Installer.canWriteIntoGame(g)
+            DispatchQueue.main.async {
+                self?.writeOK = ok
+            }
+        }
     }
 
     func restore() {

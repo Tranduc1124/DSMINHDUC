@@ -236,6 +236,28 @@ enum Installer {
         return (try? (lic + "\n").write(toFile: tokPath, atomically: true, encoding: .utf8)) != nil
     }
 
+    /// Kiểm tra THỰC: viết được file vào Documents của game không.
+    /// "Tốt" chỉ hiện khi thực sự ghi được (không đoán).
+    @discardableResult
+    static func canWriteIntoGame(_ game: GameTarget) -> Bool {
+        guard hasAccess(to: game) else { return false }
+        guard let container = containerPath(for: game.rawValue) else { return false }
+        let fm = FileManager.default
+        let docs = container + "/Documents"
+        if !fm.fileExists(atPath: docs) {
+            if (try? fm.createDirectory(atPath: docs, withIntermediateDirectories: true)) == nil {
+                return false
+            }
+        }
+        let probe = (docs as NSString).appendingPathComponent(".bola_probe")
+        if fm.fileExists(atPath: probe) {
+            return fm.isWritableFile(atPath: probe)
+        }
+        let ok = (try? Data("bola".utf8).write(toFile: probe, options: .atomic)) != nil
+        if ok { try? fm.removeItem(atPath: probe) }
+        return ok
+    }
+
     static func restore(game: GameTarget) -> InstallOutcome {
         guard let container = containerPath(for: game.rawValue) else {
             return InstallOutcome(ok: false, message: tr("Không tìm thấy thư mục game.", "Game folder not found."))
