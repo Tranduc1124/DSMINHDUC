@@ -26,7 +26,7 @@ final class AppModel: ObservableObject {
     static let cfgKeys = ["box", "line", "bone", "hp", "name", "dist", "bot", "count", "aim", "silent", "skipknock", "showfov", "team", "straight",
                           "fastfire", "buffdame", "fastreload", "fastswap", "nograss", "nofog", "highjump", "fps144",
                           "chams", "spin360", "fastcrouch", "fastloot", "backjump", "speedrun", "camwide",
-                          "wallshot", "emote"]
+                          "emote"]
 
     @Published var cfgFlags: [String: Bool] = [:]
     @Published var aimBone: Int = 0
@@ -79,7 +79,7 @@ final class AppModel: ObservableObject {
                                          "fastfire", "buffdame", "fastreload", "fastswap", "nograss",
                                          "nofog", "highjump", "fps144", "chams", "spin360",
                                          "fastcrouch", "fastloot", "backjump", "speedrun", "camwide",
-                                         "wallshot", "emote"]
+                                         "emote"]
         for k in AppModel.cfgKeys {
             if let v = UserDefaults.standard.object(forKey: "bola_cfg_" + k) as? Bool {
                 d[k] = v
@@ -294,7 +294,6 @@ final class AppModel: ObservableObject {
         if flag("showfov") { extra |= 16 }
         if flag("team") { extra |= 32 }
         if flag("straight") { extra |= 64 }
-        if flag("wallshot") { extra |= 128 }
         payload[7] = extra
         payload[8] = UInt8(max(0, min(2, aimBone)))
         payload[6] = UInt8(max(50, min(200, espThick)))

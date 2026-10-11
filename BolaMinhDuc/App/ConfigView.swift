@@ -340,13 +340,6 @@ struct ConfigView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
                     }
-                    Rectangle()
-                        .fill(Theme.border)
-                        .frame(height: 1)
-                        .padding(.leading, 52)
-                    toggleRowInline("wallshot", "cube.transparent",
-                                    model.tr("Xuyên Tường (thử nghiệm)", "Through-wall (beta)"),
-                                    model.tr("Đạn bắt đầu sát địch — bắn xuyên vật cản", "Bullet starts near the enemy — pierces cover"))
                     if model.flag("silent") {
                         Rectangle()
                             .fill(Theme.border)
