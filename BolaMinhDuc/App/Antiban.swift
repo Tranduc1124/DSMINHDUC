@@ -15,13 +15,41 @@ enum Antiban {
     }
 
     /// Removes telemetry / crash-report traces inside one game container.
+    /// Danh sách nâng cấp theo DELTA CLIENT 1.5.0 (đào từ binary — họ dọn
+    /// đầy đủ hơn: log Garena/Tencent, anti-cheat logs, integrity cache...).
     @discardableResult
     static func clean(game: GameTarget) -> Int {
         let fm = FileManager.default
         guard let container = Installer.containerPath(for: game.rawValue) else { return 0 }
         var removed = 0
 
-        // the reference tool's exact telemetry / crash-cache list
+        // 1) Documents: telemetry / anti-cheat / log artifacts
+        let docList = [
+            "APLog", "GCloud", "MidasLog", "analytics", "anti_cheat_logs", "beacon",
+            "bugly", "crash", "crash_dump", "dp_log", "feedback", "garena_log",
+            "gvoice", "log", "msdk_log", "oss_log", "pending_reports", "report",
+            "shadow_tracker", "tdlog", "tencent_tdid", "tlog", "upload", "vng_log", "xlog"
+        ]
+        for rel in docList {
+            let p = container + "/Documents/" + rel
+            if fm.fileExists(atPath: p) {
+                if (try? fm.removeItem(atPath: p)) != nil { removed += 1 }
+            }
+        }
+        // 1b) contentcache: xoá cache kiểm tra toàn vẹn của game (giữ lại tài
+        // nguyên tải sẵn — không xoá cả thư mục để game không tải lại từ đầu)
+        let ccList = [
+            "asset_verify.db", "checksum.bin", "crc_cache.bin", "file_hash.bin",
+            "integrity_db.sqlite", "patch_verify.dat", "verify_cache.dat"
+        ]
+        for f in ccList {
+            let p = container + "/Documents/contentcache/" + f
+            if fm.fileExists(atPath: p) {
+                if (try? fm.removeItem(atPath: p)) != nil { removed += 1 }
+            }
+        }
+
+        // 2) Library/Caches: analytics / crash / telemetry bundles
         let fixed = [
             "Library/Caches/Analytics",
             "Library/Caches/CrashReporter",
@@ -31,7 +59,13 @@ enum Antiban {
             "Library/Caches/com.google.firebase",
             "Library/Caches/com.appsflyer",
             "Library/Caches/adjust-sdk",
-            "Library/Caches/Snapshots"
+            "Library/Caches/Snapshots",
+            "Library/Caches/GCloud",
+            "Library/Caches/GVoice",
+            "Library/Caches/com.facebook.sdk",
+            "Library/Caches/com.garena",
+            "Library/Caches/garena",
+            "Library/Caches/com.google.gmp"
         ]
         for rel in fixed {
             let p = container + "/" + rel
@@ -40,19 +74,21 @@ enum Antiban {
             }
         }
 
-        // scan Library/Caches for telemetry-ish entries (case-insensitive)
+        // 3) scan Library/Caches for telemetry-ish entries (DELTA keywords + ours)
         let caches = container + "/Library/Caches"
         if let items = try? fm.contentsOfDirectory(atPath: caches) {
             for f in items {
                 let low = f.lowercased()
                 if low.contains("analytics") || low.contains("bugly")
-                    || low.contains("telemetry") || low.contains("crash") {
+                    || low.contains("crash") || low.contains("telemetry")
+                    || low.contains("garena") || low.contains("tlog")
+                    || low.contains("xlog") || low.contains("tdlog") {
                     if (try? fm.removeItem(atPath: caches + "/" + f)) != nil { removed += 1 }
                 }
             }
         }
 
-        // the game's own crash reports on the device
+        // 4) the game's own crash reports on the device
         let crashDir = "/var/mobile/Library/Logs/CrashReporter"
         if let items = try? fm.contentsOfDirectory(atPath: crashDir) {
             for f in items where f.lowercased().contains("freefire") {
