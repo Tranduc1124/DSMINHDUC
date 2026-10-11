@@ -253,7 +253,7 @@ enum Installer {
         if fm.fileExists(atPath: probe) {
             return fm.isWritableFile(atPath: probe)
         }
-        let ok = (try? Data("bola".utf8).write(toFile: probe, options: .atomic)) != nil
+        let ok = (try? Data("bola".utf8).write(to: URL(fileURLWithPath: probe), options: .atomic)) != nil
         if ok { try? fm.removeItem(atPath: probe) }
         return ok
     }
