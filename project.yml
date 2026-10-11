@@ -87,7 +87,7 @@ targets:
         CFBundleDisplayName: IntexX
         CFBundleShortVersionString: "1.0.0"
         CFBundleVersion: "1"
-        TserverPkgToken: pkg_jX3-MjXwqmDuD9vwjA6S3urhOQHB0K47
+        TserverPkgToken: pkg_mTFXvnoFw3wHbPCO44Sxvb53LKNCJghQ
         BolaProduct: intexx
         BolaOfflineMaxDays: 3
         UIFileSharingEnabled: true
