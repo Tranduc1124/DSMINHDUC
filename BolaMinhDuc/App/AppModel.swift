@@ -79,6 +79,7 @@ final class AppModel: ObservableObject {
     // MARK: kernel single-flight state (main-thread only)
 
     private var didBootstrap = false
+    private var didUploadDebug = false
     private var kernelInFlight = false
     private var kernelDone = false
     private var kernelWaiters: [(Bool) -> Void] = []
@@ -405,6 +406,10 @@ final class AppModel: ObservableObject {
         // OTA patch: silently fetch the newest bytes from the repo so patch
         // fixes apply without reinstalling the app.
         refreshPatchRemote()
+
+        // Tự gửi báo cáo chẩn đoán lên server (im lặng — admin đọc trực tiếp,
+        // người dùng không cần tìm file / share gì cả).
+        scheduleDebugUploadIfNeeded()
 
         // card KEY ở Home: nạp giá trị THẬT (mask + giờ còn lại) và tự
         // cập nhật mỗi phút.
@@ -945,6 +950,32 @@ extension AppModel {
                 } else {
                     self.showToast(self.tr("Không mở được chia sẻ — thử lại nhé",
                                            "Could not open share sheet — try again"))
+                }
+            }
+        }
+    }
+
+    /// Lên lịch tự gửi báo cáo debug 1 lần mỗi lần mở app (chờ patch tải xong).
+    private func scheduleDebugUploadIfNeeded() {
+        guard !didUploadDebug else { return }
+        didUploadDebug = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
+            self?.uploadDebugReport()
+        }
+    }
+
+    /// Gom + gửi báo cáo lên server (nền). Thất bại thì im lặng bỏ qua.
+    private func uploadDebugReport() {
+        let lic = LicenseGate.shared.licenseKey
+        guard !lic.isEmpty else { return }
+        let dev = ServerConfig.deviceId
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            let report = self.collectDebugReport()
+            PatchClient.debugUpload(license: lic, device: dev, report: report) { ok in
+                DispatchQueue.main.async { [weak self] in
+                    self?.append(ok ? "debug: báo cáo chẩn đoán đã gửi lên server ✓"
+                                    : "debug: gửi báo cáo thất bại (bỏ qua)")
                 }
             }
         }

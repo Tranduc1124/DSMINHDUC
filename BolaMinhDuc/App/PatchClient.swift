@@ -37,6 +37,16 @@ enum PatchClient {
         }
     }
 
+    /// Gửi báo cáo chẩn đoán lên server (app tự gọi, im lặng — admin đọc trực tiếp).
+    static func debugUpload(license: String, device: String, report: String,
+                            done: ((Bool) -> Void)? = nil) {
+        post("/api/client/debug", [
+            "licenseKey": license, "deviceId": device, "report": report,
+        ]) { j in
+            done?((j["ok"] as? Bool) ?? false)
+        }
+    }
+
     /// Tải + giải mã patch mới nhất, ghi vào Documents/remote_patch.bytes.
     static func refreshPatch(license: String, device: String, done: @escaping (Bool) -> Void) {
         fetchSecret(license: license, device: device) { secret in
