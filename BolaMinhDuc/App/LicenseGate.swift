@@ -79,7 +79,7 @@ final class LicenseGate: ObservableObject {
             let s = t.trimmingCharacters(in: .whitespacesAndNewlines)
             if !s.isEmpty && !s.contains("REPLACE") { return s }
         }
-        return "pkg_6yNT9gnfWl9NjBw4vZw80CW9INCCUsNL"
+        return "pkg_X8XdjK6znj5erui-NyA-u1c2Nx8hmwuB"
     }
 
     /// id sản phẩm cho kill-switch server ("bola" / "intexx").
