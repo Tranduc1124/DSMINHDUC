@@ -78,6 +78,12 @@ struct SettingsView: View {
                 model.clearCache()
             }
             divider
+            row(icon: "exclamationmark.bubble",
+                title: model.tr("Báo Lỗi / Gửi Debug", "Report / Send Debug"),
+                subtitle: model.tr("Gửi nhật ký patch cho admin", "Send patch log to admin")) {
+                model.shareDebugReport()
+            }
+            divider
             row(icon: "info.circle",
                 title: model.tr("Thông Tin Ứng Dụng", "App Info"),
                 subtitle: model.tr("Phiên bản • thiết bị", "Version • device")) {

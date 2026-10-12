@@ -875,6 +875,81 @@ extension AppModel {
                      "🚪 Session wiped (\(n) item(s)) — reopen the game to sign in"))
     }
 
+    // MARK: - debug report (gửi admin khi patch "không chạy")
+
+    /// Gom toàn bộ thông tin chẩn đoán: patch đang dùng, file trong từng
+    /// container game (.bola_tok / .bola_uid / patch bytes / .bola_dbg.txt).
+    func collectDebugReport() -> String {
+        var out = "=== \(AppBrand.name) DEBUG \(DeviceInfo.appVersion) ===\n"
+        out += "ios: \(DeviceInfo.iosVersion) | \(DeviceInfo.machine)\n"
+        out += "key: \(keyMaskedName) | state: \(String(describing: LicenseGate.shared.state))\n"
+        out += "uidActive: \(uidActive ?? "-")\n"
+        let cache = PatchLibrary.remoteCacheURL
+        if let data = try? Data(contentsOf: cache), data.count > 4096 {
+            let sha = PatchClient.sha256(data).map { String(format: "%02x", $0) }.joined().prefix(16)
+            out += "patch(server-cache): size=\(data.count) sha16=\(sha)\n"
+        } else {
+            out += "patch(server-cache): MISSING\n"
+        }
+        let fm = FileManager.default
+        for g in GameTarget.allCases {
+            out += "\n=== \(g.title) (\(g.rawValue)) ===\n"
+            guard let container = Installer.containerPath(for: g.rawValue) else {
+                out += "(khong truy cap duoc container)\n"
+                continue
+            }
+            let docs = container + "/Documents"
+            out += "tok: \(fm.fileExists(atPath: docs + "/.bola_tok") ? "co" : "KHONG")"
+            out += " | uid-file: \(fm.fileExists(atPath: docs + "/.bola_uid") ? "co" : "KHONG")"
+            let uidv = (try? String(contentsOfFile: docs + "/.bola_uid", encoding: .utf8))?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? "-"
+            out += " | uid=\(uidv)\n"
+            if let pd = fm.contents(atPath: docs + "/Assembly-CSharp-patch.bytes"), pd.count > 128 {
+                let psha = PatchClient.sha256(pd).map { String(format: "%02x", $0) }.joined().prefix(16)
+                out += "patch-in-game: size=\(pd.count) sha16=\(psha)\n"
+            } else {
+                out += "patch-in-game: KHONG\n"
+            }
+            if let dbg = fm.contents(atPath: docs + "/.bola_dbg.txt"),
+               let s = String(data: dbg, encoding: .utf8) {
+                let lines = s.split(separator: "\n").suffix(60)
+                out += "--- .bola_dbg.txt (last \(lines.count)) ---\n"
+                out += lines.joined(separator: "\n") + "\n"
+            } else {
+                out += ".bola_dbg.txt: KHONG CO (patch chua chay?)\n"
+            }
+        }
+        return out
+    }
+
+    /// Mở share sheet để gửi báo cáo debug (Zalo/Telegram...).
+    func shareDebugReport() {
+        append("debug: đang gom báo cáo…")
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let report = self.collectDebugReport()
+            DispatchQueue.main.async {
+                self.append("debug: xong (\(report.count) ký tự) — mở chia sẻ")
+                let av = UIActivityViewController(activityItems: [report], applicationActivities: nil)
+                if let scene = UIApplication.shared.connectedScenes
+                    .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+                   let root = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
+                    var top = root
+                    while let p = top.presentedViewController { top = p }
+                    if let pop = av.popoverPresentationController {
+                        pop.sourceView = top.view
+                        pop.sourceRect = CGRect(x: top.view.bounds.midX,
+                                                y: top.view.bounds.midY, width: 0, height: 0)
+                    }
+                    top.present(av, animated: true)
+                } else {
+                    self.showToast(self.tr("Không mở được chia sẻ — thử lại nhé",
+                                           "Could not open share sheet — try again"))
+                }
+            }
+        }
+    }
+
     /// Continuous anti-ban: like the reference tool, keep wiping the game's
     /// telemetry caches in the background (works while the app is alive,
     /// including the background audio keep-alive).
