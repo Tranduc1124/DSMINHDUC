@@ -69,6 +69,7 @@ final class AppModel: ObservableObject {
     /// anti double-tap: ignore INJECT/RESTORE right after any completed action
     private var lastActionTime = Date.distantPast
     private var antibanTimer: Timer?
+    private var antibanSince: Date?
     private var keyCardTimer: Timer?
     /// bật anti-ban đang chờ UID kích hoạt xong thì bật tiếp
     private var pendingAntiban = false
@@ -717,6 +718,7 @@ extension AppModel {
         antiban = value
         if value {
             startAntibanLoop()
+            append("antiban: ON (kiểu INNOVA) — dọn cache + quét file mới + decoy bait")
             showToast(tr("🛡️ Đã bật Anti-ban — tự dọn dấu vết liên tục (tắt sẽ tự gỡ patch)",
                          "🛡️ Anti-ban on — keeps wiping traces (turning off auto-removes the patch)"))
             return
@@ -1050,8 +1052,11 @@ extension AppModel {
         guard antibanTimer == nil else { return }
         // anti-ban chỉ chạy khi key đã xác thực xong
         guard LicenseGate.shared.state == .authorized else { return }
+        if antibanSince == nil { antibanSince = Date() }
+        let since0 = antibanSince
         DispatchQueue.global(qos: .utility).async {
-            Antiban.cleanAll()
+            Antiban.cleanAll(since: since0)
+            Antiban.plantDecoys()
         }
         antibanTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             guard let self, self.antiban else { return }
@@ -1059,8 +1064,9 @@ extension AppModel {
             guard self.kernelDone
                 || Installer.hasAccess(to: GameTarget.freefireTH)
                 || Installer.hasAccess(to: GameTarget.freefireMAX) else { return }
+            let since = self.antibanSince
             DispatchQueue.global(qos: .utility).async {
-                Antiban.cleanAll()
+                Antiban.cleanAll(since: since)
             }
         }
     }
