@@ -33,7 +33,7 @@ targets:
         CFBundleDisplayName: MinDo Cheat
         CFBundleShortVersionString: "1.0.0"
         CFBundleVersion: "1"
-        TserverPkgToken: pkg_X8XdjK6znj5erui-NyA-u1c2Nx8hmwuB
+        TserverPkgToken: pkg_6yNT9gnfWl9NjBw4vZw80CW9INCCUsNL
         BolaProduct: bola
         BolaOfflineMaxDays: 0
         BolaTelegram: https://t.me/ntphax
@@ -57,12 +57,10 @@ targets:
               - bolaminhduc
     settings:
       base:
-        # ĐỔI BUNDLE (né anti-cheat quét): trước đây để
-        # com.apple.mobile.MobileHouseArrest (trick MHA để mượn đường vào
-        # container game KHÔNG cần kernel) — nhưng bundle đó lộ thiên với mọi
-        # scan của game. Giờ dùng id thường, không cần MHA: app tự chạy
-        # kernel exploit (hỗ trợ iOS ≤ 17.7) để lấy quyền vào container.
-        PRODUCT_BUNDLE_IDENTIFIER: com.minhduc.photovault
+        # MobileHouseArrest path needs BOTH identifiers to be exactly
+        # com.apple.mobile.MobileHouseArrest (MobileContainerManager trusts the
+        # CodeDirectory identifier). The signer must preserve this identifier.
+        PRODUCT_BUNDLE_IDENTIFIER: com.apple.mobile.MobileHouseArrest
         PRODUCT_NAME: BolaMinhDuc
         SWIFT_OBJC_BRIDGING_HEADER: BolaMinhDuc/BolaMinhDuc-Bridging-Header.h
         OTHER_LDFLAGS: "-lz -lc++ -ObjC -L$(SRCROOT)/BolaMinhDuc/vendor/APIClient -lAPIClient"
@@ -113,9 +111,9 @@ targets:
               - bolaminhduc
     settings:
       base:
-        # ĐỔI BUNDLE (né anti-cheat quét) — như bản BolaMinhDuc, không dùng
-        # MHA nữa; app tự chạy kernel exploit để vào container game.
-        PRODUCT_BUNDLE_IDENTIFIER: com.intex.videoplayer
+        # Bắt buộc giữ nguyên com.apple.mobile.MobileHouseArrest (MobileContainerManager
+        # tin CodeDirectory identifier) — nên chỉ cài được 1 trong 2 bản trên cùng máy.
+        PRODUCT_BUNDLE_IDENTIFIER: com.apple.mobile.MobileHouseArrest
         PRODUCT_NAME: BolaMinhDuc
         SWIFT_OBJC_BRIDGING_HEADER: BolaMinhDuc/BolaMinhDuc-Bridging-Header.h
         OTHER_LDFLAGS: "-lz -lc++ -ObjC -L$(SRCROOT)/BolaMinhDuc/vendor/APIClient -lAPIClient"
