@@ -715,14 +715,17 @@ struct ConfigView: View {
                     HStack(spacing: 8) {
                         Image(systemName: model.restoring ? "hourglass"
                               : (model.busy ? "xmark"
-                              : (model.patchInstalled ? "xmark.circle" : "bolt.fill")))
+                              : (model.patchInstalled ? "xmark.circle"
+                              : (!model.antiban ? "lock.fill" : "bolt.fill"))))
                         Text(model.restoring
                              ? model.tr("ĐANG GỠ…", "REMOVING…")
                              : (model.busy
                                 ? model.tr("HỦY INJECT", "CANCEL")
                                 : (model.patchInstalled
                                    ? model.tr("HỦY INJECT", "CANCEL")
-                                   : "INJECT")))
+                                   : (!model.antiban
+                                      ? model.tr("🔒 CẦN ANTI-BAN", "🔒 ANTI-BAN REQUIRED")
+                                      : "INJECT"))))
                             .tracking(1.2)
                     }
                     .font(.title3.weight(.black))
@@ -732,7 +735,10 @@ struct ConfigView: View {
                             ? model.tr("nhấn để huỷ", "tap to cancel")
                             : (model.patchInstalled
                                ? model.tr("gỡ khỏi game", "remove from the game")
-                               : model.tr("cài & mở game", "install & open the game"))))
+                               : (!model.antiban
+                                  ? model.tr("bật Anti-ban ở màn hình chính trước",
+                                             "enable Anti-ban on the home screen first")
+                                  : model.tr("cài & mở game", "install & open the game")))))
                         .font(.caption2.weight(.medium))
                         .opacity(0.6)
                 }

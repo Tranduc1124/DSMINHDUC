@@ -496,6 +496,13 @@ final class AppModel: ObservableObject {
 
     func inject() {
         guard !busy, !restoring, allowAction() else { return }
+        // BẮT BUỘC: chỉ inject khi Anti-ban đang bật (bật anti-ban = đã có UID kích hoạt)
+        guard antiban else {
+            showToast(tr("🛡️ Bật Anti-ban trước rồi mới INJECT được nhé!",
+                         "🛡️ Enable Anti-ban first — injection is locked!"))
+            append("inject: chặn — anti-ban chưa bật")
+            return
+        }
         // kill-switch server: bản đã ngừng hoạt động → không cho inject
         guard !VersionGate.shared.blocked else {
             showToast(tr("⛔ Bản này đã ngừng hoạt động.",
