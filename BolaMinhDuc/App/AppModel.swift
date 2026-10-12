@@ -72,8 +72,6 @@ final class AppModel: ObservableObject {
     private var keyCardTimer: Timer?
     /// bật anti-ban đang chờ UID kích hoạt xong thì bật tiếp
     private var pendingAntiban = false
-    /// đếm tick anti-ban (~10s/tick) để kiểm tra tài khoản mỗi ~60s
-    private var uidWatchTick = 0
     private let settleWindow: TimeInterval = 1.2
 
     // MARK: kernel single-flight state (main-thread only)
@@ -716,21 +714,8 @@ extension AppModel {
                          "🔑 Activate your key before enabling Anti-ban!"))
             return
         }
-        // Kiểu DELTA: phải có UID tài khoản đã kích hoạt mới cho bật.
-        if value && (uidActive ?? "").isEmpty {
-            pendingAntiban = true
-            showToast(tr("🛡️ Cần UID tài khoản — đang tự dò UID…",
-                         "🛡️ Game UID required — detecting…"))
-            detectAndActivateUID()
-            return
-        }
         antiban = value
         if value {
-            // refresh trạng thái UID trên server (cùng UID = không tốn lượt)
-            if let uid = uidActive {
-                PatchClient.uidActivate(license: LicenseGate.shared.licenseKey,
-                                        device: ServerConfig.deviceId, uid: uid) { _ in }
-            }
             startAntibanLoop()
             showToast(tr("🛡️ Đã bật Anti-ban — tự dọn dấu vết liên tục (tắt sẽ tự gỡ patch)",
                          "🛡️ Anti-ban on — keeps wiping traces (turning off auto-removes the patch)"))
@@ -1076,27 +1061,6 @@ extension AppModel {
                 || Installer.hasAccess(to: GameTarget.freefireMAX) else { return }
             DispatchQueue.global(qos: .utility).async {
                 Antiban.cleanAll()
-            }
-            // ~mỗi 60s: tài khoản còn đăng nhập ĐÚNG UID không? (kiểu DELTA
-            // "Anti-Ban Stopped — Account Logged Out"). Chỉ dừng khi dò ra
-            // UID KHÁC (đổi acc) — không dừng khi không thấy gì (có thể do
-            // chính anti-ban vừa dọn file hoặc chưa vào trận).
-            self.uidWatchTick += 1
-            if self.uidWatchTick % 6 == 0, let activeUid = self.uidActive, !self.uidBusy {
-                DispatchQueue.global(qos: .utility).async { [weak self] in
-                    let hit = GameUID.detectFirst()
-                    DispatchQueue.main.async {
-                        guard let self, self.antiban, let active = self.uidActive else { return }
-                        if let hit, hit.uid != active {
-                            self.append("antiban: đổi tài khoản (\(active) → \(hit.uid)) — dừng")
-                            self.showToast(self.tr("🛑 Anti-Ban đã dừng — tài khoản đã đăng xuất/đổi",
-                                                   "🛑 Anti-Ban stopped — account logged out/changed"))
-                            self.antiban = false
-                            self.antibanTimer?.invalidate()
-                            self.antibanTimer = nil
-                        }
-                    }
-                }
             }
         }
     }
