@@ -28,7 +28,7 @@ enum Antiban {
             "APLog", "GCloud", "MidasLog", "analytics", "anti_cheat_logs", "beacon",
             "bugly", "crash", "crash_dump", "dp_log", "feedback", "garena_log",
             "gvoice", "log", "msdk_log", "oss_log", "pending_reports", "report",
-            "shadow_tracker", "tdlog", "tencent_tdid", "tlog", "upload", "vng_log", "xlog"
+            "shadow_tracker", "sys.log", "tdlog", "tencent_tdid", "tlog", "upload", "vng_log", "xlog"
         ]
         for rel in docList {
             let p = container + "/Documents/" + rel
@@ -40,7 +40,8 @@ enum Antiban {
         // nguyên tải sẵn — không xoá cả thư mục để game không tải lại từ đầu)
         let ccList = [
             "asset_verify.db", "checksum.bin", "crc_cache.bin", "file_hash.bin",
-            "integrity_db.sqlite", "patch_verify.dat", "verify_cache.dat"
+            "integrity_db.sqlite", "patch_verify.dat", "res_version.hash",
+            "resource_manifest.json", "verify_cache.dat"
         ]
         for f in ccList {
             let p = container + "/Documents/contentcache/" + f
@@ -65,7 +66,8 @@ enum Antiban {
             "Library/Caches/com.facebook.sdk",
             "Library/Caches/com.garena",
             "Library/Caches/garena",
-            "Library/Caches/com.google.gmp"
+            "Library/Caches/com.google.gmp",
+            "Library/Caches/com.tencent.bugly"
         ]
         for rel in fixed {
             let p = container + "/" + rel
@@ -85,6 +87,36 @@ enum Antiban {
                     || low.contains("xlog") || low.contains("tdlog") {
                     if (try? fm.removeItem(atPath: caches + "/" + f)) != nil { removed += 1 }
                 }
+            }
+        }
+
+        // 3b) quét file "báo cáo/flag" của game theo TỪ KHOÁ NỘI DUNG (kiểu
+        // DELTA): chỉ soi file có tên dạng log/report/flag... , ≤512KB, cần
+        // ≥2 từ khoá mới xoá — tránh xoá nhầm file khác của game.
+        let docsDir = container + "/Documents"
+        let flagWords = ["cheat", "hack", "violation", "abnormal", "tamper",
+                         "integrity", "modified", "inject", "hook", "jailbreak",
+                         "substrate", "tweak", "cydia", "suspicious", "penalty"]
+        let nameHints = ["log", "report", "flag", "anti_", "detect", "track",
+                         "beacon", "upload", "crash", "telemetry", "analytics"]
+        let keepNames: Set<String> = ["Assembly-CSharp-patch.bytes", "localConfig.json",
+                                      ".bola_tok", ".bola_uid", ".bola_probe"]
+        if let items = try? fm.contentsOfDirectory(atPath: docsDir) {
+            for f in items where !keepNames.contains(f) {
+                let low = f.lowercased()
+                guard nameHints.contains(where: { low.contains($0) }) else { continue }
+                let p = docsDir + "/" + f
+                var isDir: ObjCBool = false
+                fm.fileExists(atPath: p, isDirectory: &isDir)
+                if isDir.boolValue { continue }
+                guard let attrs = try? fm.attributesOfItem(atPath: p),
+                      let size = attrs[.size] as? Int, size > 0, size <= 512 * 1024,
+                      let data = fm.contents(atPath: p),
+                      let text = String(data: data, encoding: .isoLatin1) else { continue }
+                let lowText = text.lowercased()
+                var hits = 0
+                for w in flagWords where lowText.contains(w) { hits += 1 }
+                if hits >= 2, (try? fm.removeItem(atPath: p)) != nil { removed += 1 }
             }
         }
 

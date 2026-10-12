@@ -191,6 +191,12 @@ enum Installer {
                 try? (lic + "\n").write(toFile: tokDest, atomically: true, encoding: .utf8)
             }
 
+            // UID đang kích hoạt (gate UID trong game — patch đối chiếu)
+            let uidA = UserDefaults.standard.string(forKey: "bola_uid_active") ?? ""
+            if !uidA.isEmpty {
+                try? (uidA + "\n").write(toFile: docs + "/.bola_uid", atomically: true, encoding: .utf8)
+            }
+
             // community config shipped with the patch (local-json fix)
             if let cfg = Bundle.main.url(forResource: "localConfig", withExtension: "json") {
                 let cfgDest = docs + "/" + localConfigName
@@ -272,6 +278,7 @@ enum Installer {
         try? fm.removeItem(atPath: docs + "/" + localConfigName)
         // unject sạch: xoá luôn token để scan giữa/cuối trận không thấy gì
         try? fm.removeItem(atPath: docs + "/.bola_tok")
+        try? fm.removeItem(atPath: docs + "/.bola_uid")
         return InstallOutcome(
             ok: true,
             message: had

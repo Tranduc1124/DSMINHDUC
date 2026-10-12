@@ -26,6 +26,17 @@ enum PatchClient {
         }
     }
 
+    /// Kích hoạt UID game (anti-ban theo tài khoản — server theo dõi lượt đổi/ngày).
+    static func uidActivate(license: String, device: String, uid: String,
+                            done: @escaping ([String: Any]) -> Void) {
+        post("/api/client/uid/activate", [
+            "licenseKey": license, "deviceId": device, "uid": uid,
+            "product": LicenseGate.productId,
+        ]) { j in
+            done(j)
+        }
+    }
+
     /// Tải + giải mã patch mới nhất, ghi vào Documents/remote_patch.bytes.
     static func refreshPatch(license: String, device: String, done: @escaping (Bool) -> Void) {
         fetchSecret(license: license, device: device) { secret in

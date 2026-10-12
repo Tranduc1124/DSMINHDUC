@@ -45,6 +45,12 @@ final class AppModel: ObservableObject {
     /// (OFF by default - the user enables it explicitly)
     @Published var antiban: Bool = false
 
+    /// ===== UID game (kích hoạt theo tài khoản — kiểu DELTA) =====
+    @Published var uidInput: String = ""
+    @Published var uidActive: String? = UserDefaults.standard.string(forKey: "bola_uid_active")
+    @Published var uidSwitchesLeft: Int = -1
+    @Published var uidBusy: Bool = false
+
     /// true when MobileHouseArrest granted container access (no kernel needed)
     @Published var mhaActive: Bool = false
     /// Đã THỰC SỰ ghi được file vào game chưa (probe thật — không đoán)
@@ -64,6 +70,10 @@ final class AppModel: ObservableObject {
     private var lastActionTime = Date.distantPast
     private var antibanTimer: Timer?
     private var keyCardTimer: Timer?
+    /// bật anti-ban đang chờ UID kích hoạt xong thì bật tiếp
+    private var pendingAntiban = false
+    /// đếm tick anti-ban (~10s/tick) để kiểm tra tài khoản mỗi ~60s
+    private var uidWatchTick = 0
     private let settleWindow: TimeInterval = 1.2
 
     // MARK: kernel single-flight state (main-thread only)
@@ -92,6 +102,7 @@ final class AppModel: ObservableObject {
         // phải tự bật lại (chỉ bật được sau khi key đã xác thực).
         antiban = false
         UserDefaults.standard.removeObject(forKey: "bola_antiban")
+        if let a = uidActive { uidInput = a }
         aimBone = UserDefaults.standard.integer(forKey: "bola_bone")
         let storedFov = UserDefaults.standard.object(forKey: "bola_fov") as? Int
         if let f = storedFov, f >= 5 && f <= 100 {
@@ -693,13 +704,27 @@ extension AppModel {
                          "🔑 Activate your key before enabling Anti-ban!"))
             return
         }
+        // Kiểu DELTA: phải có UID tài khoản đã kích hoạt mới cho bật.
+        if value && (uidActive ?? "").isEmpty {
+            pendingAntiban = true
+            showToast(tr("🛡️ Cần UID tài khoản — đang tự dò UID…",
+                         "🛡️ Game UID required — detecting…"))
+            detectAndActivateUID()
+            return
+        }
         antiban = value
         if value {
+            // refresh trạng thái UID trên server (cùng UID = không tốn lượt)
+            if let uid = uidActive {
+                PatchClient.uidActivate(license: LicenseGate.shared.licenseKey,
+                                        device: ServerConfig.deviceId, uid: uid) { _ in }
+            }
             startAntibanLoop()
             showToast(tr("🛡️ Đã bật Anti-ban — tự dọn dấu vết liên tục (tắt sẽ tự gỡ patch)",
                          "🛡️ Anti-ban on — keeps wiping traces (turning off auto-removes the patch)"))
             return
         }
+        pendingAntiban = false
         // Turning anti-ban OFF while the patch is installed = instant
         // uninject: stop the cleanup loop and pull the patch out of every
         // game container it is in.
@@ -725,6 +750,124 @@ extension AppModel {
         }
     }
 
+    /// Tự dò UID từ dữ liệu game rồi điền vào ô nhập (nút 🔍 "Lấy UID").
+    func detectUID() {
+        guard !uidBusy else { return }
+        uidBusy = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let hit = GameUID.detectFirst()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.uidBusy = false
+                if let hit {
+                    self.uidInput = hit.uid
+                    self.append("uid: dò thấy \(hit.uid) (\(hit.source))")
+                    self.showToast(self.tr("🔍 Đã lấy UID \(hit.uid) — bấm KÍCH HOẠT nhé!",
+                                           "🔍 UID \(hit.uid) detected — tap ACTIVATE!"))
+                } else {
+                    self.append("uid: không dò thấy trong dữ liệu game — nhập tay")
+                    self.showToast(self.tr("🔍 Không thấy UID trong dữ liệu game — nhập tay nhé",
+                                           "🔍 No UID found in game data — enter it manually"))
+                }
+            }
+        }
+    }
+
+    /// Bật anti-ban mà thiếu UID: tự dò rồi kích hoạt luôn.
+    private func detectAndActivateUID() {
+        guard !uidBusy else { return }
+        uidBusy = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let hit = GameUID.detectFirst()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.uidBusy = false
+                if let hit {
+                    self.uidInput = hit.uid
+                    self.append("uid: tự dò thấy \(hit.uid) (\(hit.source)) — kích hoạt…")
+                    self.activateUID(hit.uid)
+                } else {
+                    self.append("uid: không dò thấy — chờ nhập tay")
+                    self.showToast(self.tr("🔍 Không dò thấy UID — nhập UID vào ô rồi bấm KÍCH HOẠT",
+                                           "🔍 No UID detected — enter UID then tap ACTIVATE"))
+                }
+            }
+        }
+    }
+
+    /// Kích hoạt UID với server (theo dõi lượt/ngày kiểu DELTA). Thành công
+    /// thì ghi .bola_uid vào container game để patch trong game đối chiếu.
+    func activateUID(_ uid: String? = nil) {
+        guard !uidBusy else { return }
+        if LicenseGate.shared.state != .authorized {
+            showToast(tr("🔑 Nhập key trước đã!", "🔑 Activate your key first!"))
+            return
+        }
+        let target = (uid ?? uidInput).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !target.isEmpty else {
+            showToast(tr("Nhập UID trước đã.", "Enter UID first."))
+            return
+        }
+        guard target.range(of: "^[0-9]{4,18}$", options: .regularExpression) != nil else {
+            showToast(tr("UID chỉ gồm chữ số (4–18 số).", "UID must be digits (4–18)."))
+            return
+        }
+        uidBusy = true
+        PatchClient.uidActivate(license: LicenseGate.shared.licenseKey,
+                                device: ServerConfig.deviceId, uid: target) { [weak self] j in
+            guard let self else { return }
+            self.uidBusy = false
+            if (j["ok"] as? Bool) ?? false {
+                let already = (j["alreadyActive"] as? Bool) ?? false
+                self.uidInput = target
+                self.uidActive = target
+                UserDefaults.standard.set(target, forKey: "bola_uid_active")
+                if let left = j["switchesLeft"] as? Int { self.uidSwitchesLeft = left }
+                let n = GameUID.write(target)
+                let leftTxt = self.uidSwitchesLeft >= 0
+                    ? self.tr(" · còn \(self.uidSwitchesLeft) lượt hôm nay",
+                              " · \(self.uidSwitchesLeft) left today")
+                    : ""
+                self.append("uid: \(already ? "đang bảo vệ" : "kích hoạt") \(target) → ghi \(n) container\(leftTxt)")
+                self.showToast(already
+                    ? self.tr("✅ UID \(target) đang bảo vệ — mở lại game để chơi",
+                              "✅ UID \(target) is protected — reopen the game")
+                    : self.tr("✅ Đã kích hoạt UID \(target)\(leftTxt) — mở lại game để chơi!",
+                              "✅ UID \(target) activated\(leftTxt) — reopen the game!"))
+                if self.pendingAntiban {
+                    self.pendingAntiban = false
+                    self.setAntiban(true)
+                }
+            } else {
+                let msg = (j["message"] as? String)
+                    ?? self.tr("Xác thực thất bại, thử lại.", "Verification failed, try again.")
+                self.append("uid: kích hoạt thất bại — " + msg)
+                self.showToast("⚠️ " + msg)
+            }
+        }
+    }
+
+    /// Xoá UID hiện tại (trong app). Muốn đổi sang UID mới thì BẮT BUỘC bấm
+    /// nút này trước, rồi mới nhập + kích hoạt UID mới được.
+    func clearUID() {
+        uidActive = nil
+        uidInput = ""
+        uidSwitchesLeft = -1
+        UserDefaults.standard.removeObject(forKey: "bola_uid_active")
+        let n = GameUID.remove()
+        append("uid: đã xoá UID hiện tại (gỡ .bola_uid ở \(n) container)")
+        showToast(tr("🗑️ Đã xoá UID hiện tại — nhập UID mới để kích hoạt lại",
+                     "🗑️ Current UID removed — enter a new UID to activate"))
+    }
+
+    /// Đổi tài khoản: xoá phiên đăng nhập (session/cookie) như DELTA logout.
+    func gameLogout() {
+        let n = GameUID.wipeSession()
+        append("logout: đã xoá session data (\(n) mục) — game sẽ yêu cầu đăng nhập lại")
+        showToast(tr("🚪 Đã xoá phiên đăng nhập (\(n) mục) — mở game đăng nhập tài khoản khác",
+                     "🚪 Session wiped (\(n) item(s)) — reopen the game to sign in"))
+    }
+
     /// Continuous anti-ban: like the reference tool, keep wiping the game's
     /// telemetry caches in the background (works while the app is alive,
     /// including the background audio keep-alive).
@@ -743,6 +886,27 @@ extension AppModel {
                 || Installer.hasAccess(to: GameTarget.freefireMAX) else { return }
             DispatchQueue.global(qos: .utility).async {
                 Antiban.cleanAll()
+            }
+            // ~mỗi 60s: tài khoản còn đăng nhập ĐÚNG UID không? (kiểu DELTA
+            // "Anti-Ban Stopped — Account Logged Out"). Chỉ dừng khi dò ra
+            // UID KHÁC (đổi acc) — không dừng khi không thấy gì (có thể do
+            // chính anti-ban vừa dọn file hoặc chưa vào trận).
+            self.uidWatchTick += 1
+            if self.uidWatchTick % 6 == 0, let activeUid = self.uidActive, !self.uidBusy {
+                DispatchQueue.global(qos: .utility).async { [weak self] in
+                    let hit = GameUID.detectFirst()
+                    DispatchQueue.main.async {
+                        guard let self, self.antiban, let active = self.uidActive else { return }
+                        if let hit, hit.uid != active {
+                            self.append("antiban: đổi tài khoản (\(active) → \(hit.uid)) — dừng")
+                            self.showToast(self.tr("🛑 Anti-Ban đã dừng — tài khoản đã đăng xuất/đổi",
+                                                   "🛑 Anti-Ban stopped — account logged out/changed"))
+                            self.antiban = false
+                            self.antibanTimer?.invalidate()
+                            self.antibanTimer = nil
+                        }
+                    }
+                }
             }
         }
     }
