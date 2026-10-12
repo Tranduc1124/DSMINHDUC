@@ -923,8 +923,85 @@ extension AppModel {
             } else {
                 out += ".bola_dbg.txt: KHONG CO (patch chua chay?)\n"
             }
+            // danh sách file + mtime: biết game có chạy sau khi inject không
+            // (file trong container game đổi mtime mỗi lần game mở).
+            out += "docs-list:\n" + dirListing(docs, limit: 60)
+            out += "library-list:\n" + dirListing(container + "/Library", limit: 50)
+            out += "caches-list:\n" + dirListing(container + "/Library/Caches", limit: 40)
+            out += "prefs-list:\n" + dirListing(container + "/Library/Preferences", limit: 40)
+            out += "--- log hunt ---\n" + huntGameLogs(container)
+        }
+        if out.count > 55000 { out = String(out.prefix(55000)) + "\n...(het)\n" }
+        return out
+    }
+
+    /// Liệt kê 1 thư mục (tên + size + mtime) — kèm cả file ẩn.
+    private func dirListing(_ path: String, limit: Int = 60) -> String {
+        let fm = FileManager.default
+        guard let items = try? fm.contentsOfDirectory(atPath: path) else {
+            return "  (khong doc duoc)\n"
+        }
+        let df = DateFormatter()
+        df.dateFormat = "dd HH:mm"
+        var out = ""
+        var shown = 0
+        for it in items {
+            if shown >= limit {
+                out += "  ...(+\(items.count - limit) muc nua)\n"
+                break
+            }
+            let p = path + "/" + it
+            let attrs = try? fm.attributesOfItem(atPath: p)
+            let isDir = (attrs?[.type] as? FileAttributeType) == .typeDirectory
+            let size = (attrs?[.size] as? Int) ?? 0
+            let mt = (attrs?[.modificationDate] as? Date).map { df.string(from: $0) } ?? "-"
+            out += "  \(isDir ? "d" : "f") \(it.prefix(70)) \(isDir ? "" : "\(size)B") \(mt)\n"
+            shown += 1
         }
         return out
+    }
+
+    /// Tìm log nội bộ của game (IFix/Unity/Garena/Crash) — lấy file mới nhất,
+    /// đọc đuôi file để thấy lý do patch bị từ chối (nếu có).
+    private func huntGameLogs(_ container: String, maxFiles: Int = 4, maxLines: Int = 30) -> String {
+        let fm = FileManager.default
+        var found: [(String, Date, Int)] = []
+        let dirs = [container + "/Documents", container + "/Library",
+                    container + "/Library/Caches", container + "/Library/Logs",
+                    container + "/tmp"]
+        for d in dirs {
+            guard let items = try? fm.contentsOfDirectory(atPath: d) else { continue }
+            for it in items {
+                let low = it.lowercased()
+                let isLog = low.hasSuffix(".log") || low.contains("log") || low.contains("ifix")
+                    || low.contains("player") || low.contains("crash") || low.contains("garena")
+                guard isLog else { continue }
+                let p = d + "/" + it
+                guard let attrs = try? fm.attributesOfItem(atPath: p),
+                      (attrs[.type] as? FileAttributeType) == .typeRegular,
+                      let size = attrs[.size] as? Int, size > 0, size < 30_000_000 else { continue }
+                let mt = (attrs[.modificationDate] as? Date) ?? .distantPast
+                found.append((p, mt, size))
+            }
+        }
+        found.sort { $0.1 > $1.1 }
+        var out = ""
+        for f in found.prefix(maxFiles) {
+            out += "--- \(String(f.0.dropFirst(container.count))) (\(f.2)B) ---\n"
+            if let h = FileHandle(forReadingAtPath: f.0) {
+                defer { try? h.close() }
+                if let end = try? h.seekToEnd(), end > 0 {
+                    let start = end > UInt64(20_000) ? end - 20_000 : 0
+                    try? h.seek(toOffset: start)
+                    let data = (try? h.readToEnd()) ?? Data()
+                    let text = String(data: data, encoding: .utf8)
+                        ?? String(decoding: data, as: UTF8.self)
+                    let lines = text.split(separator: "\n", omittingEmptySubsequences: false).suffix(maxLines)
+                    for ln in lines { out += String(ln.prefix(140)) + "\n" }
+                }
+            }
+        }
+        return out.isEmpty ? "(khong co file log)\n" : out
     }
 
     /// Mở share sheet để gửi báo cáo debug (Zalo/Telegram...).
