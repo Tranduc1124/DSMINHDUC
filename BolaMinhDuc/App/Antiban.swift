@@ -26,6 +26,8 @@ enum Antiban {
     }
     /// Prefix rác thả trong Library/Caches.
     private static let cacheJunkPrefix = "cache_data_"
+    /// Chặn chạy plantJunk trùng lặp (tránh văng app khi bật anti liên tục).
+    private static var planting = false
 
     /// Một lượt dọn: cache telemetry + file lộ + (tuỳ chọn) sweep file mới.
     @discardableResult
@@ -144,6 +146,9 @@ enum Antiban {
     /// Patch thật nằm lẫn trong đống — nhìn vào không biết file nào là thật.
     @discardableResult
     static func plantJunk() -> Int {
+        if planting { return 0 }
+        planting = true
+        defer { planting = false }
         let fm = FileManager.default
         var planted = 0
         for game in [GameTarget.freefireTH, GameTarget.freefireMAX] {
@@ -156,14 +161,16 @@ enum Antiban {
                                 manifest: manifestPath(game.rawValue)) // dọn rác cũ trước
             var names: [String] = []
 
-            // ~1000 file rác TO (512KB) — giống decoy của INNOVA
-            // (file decoy đo được của nó = 512000 byte random thuần).
+            // ~200 file rác TO (512KB) — giống decoy của INNOVA.
             // Patch thật trộn lẫn trong đống này.
+            // autoreleasepool từng file: không gom 100MB+ rác bộ nhớ -> hết văng.
             let alnum = Array("abcdefghijklmnopqrstuvwxyz0123456789")
-            for _ in 0..<1000 {
-                let tag = (0..<11).map { _ in String(alnum[Int.random(in: 0..<alnum.count)]) }.joined()
-                let name = "BOLA_CHEAT_\(tag).bytes"
-                if writeJunk(doc + "/" + name, size: 512_000) { names.append(name); planted += 1 }
+            for _ in 0..<200 {
+                autoreleasepool {
+                    let tag = (0..<11).map { _ in String(alnum[Int.random(in: 0..<alnum.count)]) }.joined()
+                    let name = "BOLA_CHEAT_\(tag).bytes"
+                    if writeJunk(doc + "/" + name, size: 512_000) { names.append(name); planted += 1 }
+                }
             }
             // 5 file giả "na ná patch thật" — patch thật trộn vào đây
             for sib in patchSiblings {
