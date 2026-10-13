@@ -720,8 +720,9 @@ extension AppModel {
             append("antiban: ON (kiểu INNOVA) — dọn 1 lần + rác thả khi INJECT")
             DispatchQueue.global(qos: .utility).async { [weak self] in
                 let n = Antiban.cleanAll(since: nil)
+                let locked = Antiban.lockTelemetryDirs()
                 DispatchQueue.main.async {
-                    self?.append("antiban: đã dọn \(n) mục (một lần, kiểu INNOVA)")
+                    self?.append("antiban: dọn \(n) mục · khoá \(locked) thư mục telemetry (chặn tạo file)")
                 }
             }
             // Nếu patch đã cài sẵn trong game → thả rác luôn cho khớp trạng thái
@@ -752,6 +753,7 @@ extension AppModel {
         // game container it is in.
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
+            _ = Antiban.unlockTelemetryDirs()
             _ = Antiban.removeDecoys()
             var removed: [String] = []
             for g in GameTarget.allCases where Installer.patchExists(for: g) {

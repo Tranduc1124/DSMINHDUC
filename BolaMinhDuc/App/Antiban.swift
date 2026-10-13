@@ -69,6 +69,49 @@ enum Antiban {
         return removed
     }
 
+    /// "CHẶN TẠO FILE": khoá cứng 9 thư mục telemetry thành read-only (0555)
+    /// — sau khi dọn, game KHÔNG TẠO được file mới trong đó nữa (thay vì
+    /// phải xoá liên tục). Cùng user mobile nên chmod ăn ngay.
+    @discardableResult
+    static func lockTelemetryDirs() -> Int {
+        let fm = FileManager.default
+        var n = 0
+        let names = ["Analytics", "CrashReporter", "Snapshots", "adjust-sdk", "bugly",
+                     "com.appsflyer", "com.crashlytics.data", "com.google.firebase", "crashes"]
+        for g in [GameTarget.freefireTH, GameTarget.freefireMAX] {
+            guard let container = Installer.containerPath(for: g.rawValue) else { continue }
+            let caches = container + "/Library/Caches"
+            try? fm.createDirectory(atPath: caches, withIntermediateDirectories: true)
+            for name in names {
+                let d = caches + "/" + name
+                try? fm.createDirectory(atPath: d, withIntermediateDirectories: true)
+                if (try? fm.setAttributes([.posixPermissions: 0o555], ofItemAtPath: d)) != nil {
+                    n += 1
+                }
+            }
+        }
+        return n
+    }
+
+    /// Mở khoá (0755) — gọi khi tắt anti/unject rồi dọn sạch.
+    @discardableResult
+    static func unlockTelemetryDirs() -> Int {
+        let fm = FileManager.default
+        var n = 0
+        let names = ["Analytics", "CrashReporter", "Snapshots", "adjust-sdk", "bugly",
+                     "com.appsflyer", "com.crashlytics.data", "com.google.firebase", "crashes"]
+        for g in [GameTarget.freefireTH, GameTarget.freefireMAX] {
+            guard let container = Installer.containerPath(for: g.rawValue) else { continue }
+            for name in names {
+                let d = container + "/Library/Caches/" + name
+                if (try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: d)) != nil {
+                    n += 1
+                }
+            }
+        }
+        return n
+    }
+
     /// "[FreeFirePatch] 🧹 dọn dẹp file lộ khỏi Documents" (kiểu INNOVA):
     /// xoá rác của tool khác / bản cũ trong Documents game — trừ file của mình.
     @discardableResult
