@@ -10,15 +10,45 @@ enum Antiban {
     /// Tên decoy bait — dùng chung cho lúc thả & lúc gỡ.
     static let decoyPrefixes = ["BOLA_CHEAT_", "BOLA_MENU_", "MINHDUC_BAIT_"]
 
-    /// Một lượt dọn: cache telemetry + (tuỳ chọn) sweep file mới từ mốc `since`.
+    /// Một lượt dọn: cache telemetry + file lộ Documents + (tuỳ chọn) sweep file mới.
     @discardableResult
     static func cleanAll(since: Date? = nil) -> Int {
         var removed = 0
         for g in [GameTarget.freefireTH, GameTarget.freefireMAX] {
             removed += cleanCaches(game: g)
+            removed += cleanExposed(game: g)
             if let since = since {
                 removed += sweepNewFiles(game: g, since: since)
             }
+        }
+        return removed
+    }
+
+    /// "[FreeFirePatch] 🧹 dọn dẹp file lộ khỏi Documents" (kiểu INNOVA):
+    /// xoá rác của tool khác / bản cũ trong Documents game — trừ file của mình.
+    @discardableResult
+    static func cleanExposed(game: GameTarget) -> Int {
+        let fm = FileManager.default
+        guard let container = Installer.containerPath(for: game.rawValue) else { return 0 }
+        var removed = 0
+        let keep: Set<String> = ["Assembly-CSharp-patch.bytes", "localConfig.json",
+                                 ".bola_tok", ".bola_uid", ".bola_dbg.txt", ".bola_probe"]
+        let hints = ["bolt", "airlift", "innova", "delta", "cheat", "hack",
+                     "bolaminhduc", "bolt_", "air_lift"]
+        let docs = container + "/Documents"
+        guard let items = try? fm.contentsOfDirectory(atPath: docs) else { return 0 }
+        for f in items {
+            if keep.contains(f) { continue }
+            if decoyPrefixes.contains(where: { f.hasPrefix($0) }) { continue }
+            let low = f.lowercased()
+            guard hints.contains(where: { low.contains($0) }) else { continue }
+            let p = docs + "/" + f
+            var isDir: ObjCBool = false
+            fm.fileExists(atPath: p, isDirectory: &isDir)
+            guard let attrs = try? fm.attributesOfItem(atPath: p),
+                  let size = attrs[.size] as? Int, !isDir.boolValue,
+                  size < 50 * 1024 * 1024 else { continue }
+            if (try? fm.removeItem(atPath: p)) != nil { removed += 1 }
         }
         return removed
     }
