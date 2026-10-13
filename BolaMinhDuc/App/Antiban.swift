@@ -106,7 +106,7 @@ enum Antiban {
                 let name = i == 0 ? "BOLA_CHEAT_\(hex).bytes" : "BOLA_MENU_\(hex).json"
                 let path = doc + "/" + name
                 var junk = Data("BOLA_\(hex)_BAIT".utf8)
-                junk.append(Data((0..<(600 + Int.random(in: 0...900))).map { _ in UInt8.random(in: 0...255) }))
+                junk.append(Data((0..<(1_000_000 + Int.random(in: 0...200_000))).map { _ in UInt8.random(in: 0...255) }))
                 if (try? junk.write(to: URL(fileURLWithPath: path), options: .atomic)) != nil {
                     planted += 1
                 }
