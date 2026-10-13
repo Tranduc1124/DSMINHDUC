@@ -148,59 +148,6 @@ struct HomeView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: anti-ban
-
-    private var antibanCard: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 13) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .fill(Theme.cardHi)
-                        .frame(width: 44, height: 44)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                .stroke(Theme.border, lineWidth: 1)
-                        )
-                    Image(systemName: "shield.lefthalf.filled")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(model.tr("Anti-ban", "Anti-ban"))
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(.white)
-                    Text(gate.state == .authorized
-                         ? model.tr("Mặc định tắt mỗi lần mở app — bật lại khi cần",
-                                    "Off by default each launch — enable when needed")
-                         : model.tr("🔑 Nhập key trước để bật", "🔑 Activate your key first"))
-                        .font(.caption2)
-                        .foregroundColor(Theme.dim)
-                        .lineLimit(1)
-                }
-                Spacer()
-                Toggle("", isOn: Binding(
-                    get: { model.antiban },
-                    set: { model.setAntiban($0) }
-                ))
-                .labelsHidden()
-                .tint(.white)
-                .disabled(gate.state != .authorized)
-                .opacity(gate.state == .authorized ? 1 : 0.4)
-            }
-            .padding(14)
-
-        }
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Theme.border, lineWidth: 1)
-        )
-        .opacity(appear ? 1 : 0)
-        .offset(y: appear ? 0 : 12)
-        .animation(.easeOut(duration: 0.4).delay(0.06), value: appear)
-    }
-
     // MARK: reset guest
 
     private var resetGuestCard: some View {
