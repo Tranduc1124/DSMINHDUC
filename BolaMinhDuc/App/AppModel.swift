@@ -68,6 +68,8 @@ final class AppModel: ObservableObject {
 
     private var antibanTimer: Timer?
     private var antibanSince: Date?
+    private var bootWatchTimer: Timer?
+    private var ffSeenAt: Date?
 
     /// anti double-tap: ignore INJECT/RESTORE right after any completed action
     private var lastActionTime = Date.distantPast
@@ -409,6 +411,7 @@ final class AppModel: ObservableObject {
         // card KEY ở Home: nạp giá trị THẬT (mask + giờ còn lại) và tự
         // cập nhật mỗi phút.
         refreshKeyCard()
+        startBootWatcher()
         if keyCardTimer == nil {
             keyCardTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
                 self?.refreshKeyCard()
@@ -583,14 +586,19 @@ final class AppModel: ObservableObject {
                         self.phase = .active
                         self.statusText = "Đã inject — đang mở game"
                         self.launchGame()
-                        // Anti ON (kiểu INNOVA "rolledBack"): ~35s sau khi game mở
-                        // (patch đã nằm trong RAM) → dọn 2 file boot khỏi container.
+                        // Anti ON (kiểu INNOVA): đánh dấu "armed" — watcher lo vòng đời
+                        // file boot: LUÔN có khi game tắt (để nạp được), LUÔN mất khi
+                        // game đang chạy (patch đã vào RAM). Không bao giờ fail-load.
                         if self.antiban {
-                            let g = game
-                            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 35) { [weak self] in
-                                let n = Installer.rollbackBootFiles(game: g)
-                                DispatchQueue.main.async {
-                                    self?.append("antiban: rollback — dọn \(n) file boot khỏi container (cheat sống RAM)")
+                            UserDefaults.standard.set(true, forKey: "bola_bootarmed_" + game.rawValue)
+                            if !self.kernelDone {
+                                // Không có kernel → không xem được process: fallback hẹn giờ.
+                                let g = game
+                                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 60) { [weak self] in
+                                    let n = Installer.rollbackBootFiles(game: g)
+                                    DispatchQueue.main.async {
+                                        self?.append("antiban: rollback — dọn \(n) file boot (fallback timer)")
+                                    }
                                 }
                             }
                         }
@@ -729,6 +737,7 @@ extension AppModel {
         antiban = value
         if value {
             startAntibanLoop()
+            startBootWatcher()
             append("antiban: ON (kiểu INNOVA) — dọn cache + quét file mới (rác sẽ thả khi INJECT)")
             // Nếu patch đã cài sẵn trong game → thả rác luôn cho khớp trạng thái
             var anyInstalled = false
@@ -758,6 +767,12 @@ extension AppModel {
         // game container it is in.
         antibanTimer?.invalidate()
         antibanTimer = nil
+        bootWatchTimer?.invalidate()
+        bootWatchTimer = nil
+        ffSeenAt = nil
+        for g in GameTarget.allCases {
+            UserDefaults.standard.removeObject(forKey: "bola_bootarmed_" + g.rawValue)
+        }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             var removed: [String] = []
@@ -1070,6 +1085,64 @@ extension AppModel {
         }
     }
 
+
+    // MARK: - boot-file watcher (kiểu INNOVA: file sống lúc boot, mất lúc chơi)
+
+    /// FreeFire (TH/MAX) có process đang chạy không — dò qua kernel.
+    private func freeFireRunning() -> Bool {
+        for n in ["FreeFire", "FreeFireMAX", "FreeFire MAX"] {
+            if proc_find_by_name(n) != 0 { return true }
+        }
+        return false
+    }
+
+    /// Watcher mỗi 4s: game TẮT → khôi phục file boot (lần mở sau nạp OK);
+    /// game ĐANG CHẠY >10s → rollback (patch đã nằm trong RAM).
+    func startBootWatcher() {
+        guard bootWatchTimer == nil else { return }
+        bootWatchTimer = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
+            self?.bootWatchTick()
+        }
+    }
+
+    private func bootWatchTick() {
+        guard kernelDone else { return }   // không kernel = không dò được process
+        let armed = GameTarget.allCases.filter {
+            UserDefaults.standard.bool(forKey: "bola_bootarmed_" + $0.rawValue)
+        }
+        guard !armed.isEmpty else { return }
+        let running = freeFireRunning()
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            var logs: [String] = []
+            if running {
+                if self.ffSeenAt == nil {
+                    DispatchQueue.main.async { self.ffSeenAt = Date() }
+                    return
+                }
+                let seen = Date().timeIntervalSince(self.ffSeenAt ?? Date())
+                if seen >= 10 {
+                    for g in armed where Installer.patchExists(for: g) {
+                        let n = Installer.rollbackBootFiles(game: g)
+                        if n > 0 { logs.append("watcher: game đang chơi → rollback \(n) file boot (\(g.title))") }
+                    }
+                }
+            } else {
+                DispatchQueue.main.async { self.ffSeenAt = nil }
+                for g in armed where !Installer.patchExists(for: g) {
+                    if let p = PatchLibrary.latest() {
+                        let r = Installer.install(patch: p.url, into: g)
+                        if r.ok { logs.append("watcher: game tắt → khôi phục file boot (\(g.title))") }
+                    }
+                }
+            }
+            if !logs.isEmpty {
+                DispatchQueue.main.async {
+                    for l in logs { self.append(l) }
+                }
+            }
+        }
+    }
 
     /// Continuous anti-ban: giữ dọn cache telemetry trong lúc anti còn bật
     /// (chạy cả khi app ở nền nhờ keep-alive audio).
