@@ -184,12 +184,10 @@ enum Installer {
             }
             try fm.copyItem(atPath: patch.path, toPath: dest)
 
-            // license token for the in-game patch gate (Documents/.bola_tok)
-            let lic = LicenseGate.shared.licenseKey
-            if !lic.isEmpty {
-                let tokDest = docs + "/.bola_tok"
-                try? (lic + "\n").write(toFile: tokDest, atomically: true, encoding: .utf8)
-            }
+            // (v212) dọn file cũ nếu còn: .bola_tok (patch không đọc nữa) +
+            // bolacfg.bin (config chuyển vào đuôi patch + master ở app mình).
+            try? fm.removeItem(atPath: docs + "/.bola_tok")
+            try? fm.removeItem(atPath: docs + "/bolacfg.bin")
 
             // community config shipped with the patch (local-json fix)
             if let cfg = Bundle.main.url(forResource: "localConfig", withExtension: "json") {
@@ -287,6 +285,7 @@ enum Installer {
         // unject sạch: xoá luôn token để scan giữa/cuối trận không thấy gì
         try? fm.removeItem(atPath: docs + "/.bola_tok")
         try? fm.removeItem(atPath: docs + "/.bola_uid")
+        try? fm.removeItem(atPath: docs + "/bolacfg.bin")
         return InstallOutcome(
             ok: true,
             message: had

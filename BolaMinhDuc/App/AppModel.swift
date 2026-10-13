@@ -93,11 +93,18 @@ final class AppModel: ObservableObject {
             }
         }
         cfgFlags = d
-        // (v211) Anti V2 (flood 95k) đã bỏ — dọn 1 lần đống file cũ trên máy.
-        if !UserDefaults.standard.bool(forKey: "bola_oldflood_cleaned_v211") {
-            UserDefaults.standard.set(true, forKey: "bola_oldflood_cleaned_v211")
+        // (v212) Dọn 1 lần file cũ: flood anti V2 (95k) + bolacfg.bin +
+        // .bola_tok — config giờ nằm trong đuôi file patch + master ở app mình.
+        if !UserDefaults.standard.bool(forKey: "bola_legacy_cleaned_v212") {
+            UserDefaults.standard.set(true, forKey: "bola_legacy_cleaned_v212")
             DispatchQueue.global(qos: .utility).async {
                 _ = Antiban.removeFlood()
+                for g in GameTarget.allCases {
+                    if let c = Installer.containerPath(for: g.rawValue) {
+                        try? FileManager.default.removeItem(atPath: c + "/Documents/bolacfg.bin")
+                        try? FileManager.default.removeItem(atPath: c + "/Documents/.bola_tok")
+                    }
+                }
             }
         }
         if let a = uidActive { uidInput = a }
@@ -251,7 +258,8 @@ final class AppModel: ObservableObject {
 
     // MARK: - binary config (app -> game)
     //
-    // bolacfg.bin = 20 obfuscated payload bytes + 4-byte CRC32 (little endian).
+    // config = 24 obfuscated payload bytes + 4-byte CRC32 (little endian),
+    // gắn vào ĐUÔI file patch trong game; master: app mình/Documents/bolacfg.bin.
     // payload: "BOLA" | ver=1 | flags | - | 0...
     // flags bits: 0 box, 1 line, 2 hp, 3 name, 4 dist, 5 bot, 7 count.
     // byte 7: bit0 aim, bit1 skeleton bones, bit2 silent aim; byte 8: aim bone (0 head, 1 neck, 2 chest).
@@ -276,8 +284,8 @@ final class AppModel: ObservableObject {
         return ~crc
     }
 
-    /// Best-effort write; also called right before install so the file is
-    /// guaranteed fresh when the game starts.
+    /// Best-effort write: master trong app mình (Documents/bolacfg.bin) +
+    /// làm mới ĐUÔI config 28 byte của file patch trong game (gọi sau install).
     func writeConfig() {
         guard let container = Installer.containerPath(for: game.rawValue) else { return }
         var payload = [UInt8](repeating: 0, count: 24)
@@ -340,13 +348,29 @@ final class AppModel: ObservableObject {
         data.append(UInt8((crc >> 8) & 0xFF))
         data.append(UInt8((crc >> 16) & 0xFF))
         data.append(UInt8((crc >> 24) & 0xFF))
-        let path = container + "/Documents/bolacfg.bin"
-        do {
-            try Data(data).write(to: URL(fileURLWithPath: path), options: .atomic)
-            append("cfg: đã ghi bolacfg.bin")
-        } catch {
-            append("cfg: không ghi được bolacfg.bin")
+        let fmc = FileManager.default
+        // (v212) Master copy: file config sống trong APP MÌNH (không nằm rời
+        // rạc trong container game nữa).
+        if let mine = fmc.urls(for: .documentDirectory, in: .userDomainMask).first {
+            try? Data(data).write(to: mine.appendingPathComponent("bolacfg.bin"), options: .atomic)
         }
+        // (v212) Game chỉ nhận config qua ĐUÔI file patch (file game buộc
+        // phải có sẵn để nạp cheat): ghi lại 28 byte đuôi, thân giữ nguyên.
+        // Đuôi cũ chỉ bị cắt nếu CRC hợp lệ (tránh cắt nhầm bytes code).
+        let dest = container + "/Documents/" + Installer.patchFileName
+        if var pdata = try? Data(contentsOf: URL(fileURLWithPath: dest)), pdata.count > 28 {
+            let tail = [UInt8](pdata.suffix(28))
+            let stored = UInt32(tail[24]) | (UInt32(tail[25]) << 8)
+                       | (UInt32(tail[26]) << 16) | (UInt32(tail[27]) << 24)
+            if crc32(Array(tail[0..<24])) == stored {
+                pdata = pdata.prefix(pdata.count - 28)
+            }
+            pdata.append(contentsOf: data)
+            try? pdata.write(to: URL(fileURLWithPath: dest), options: .atomic)
+        }
+        // dọn bolacfg.bin bản cũ trong game (nếu còn)
+        try? fmc.removeItem(atPath: container + "/Documents/bolacfg.bin")
+        append("cfg: ok")
     }
 
     // MARK: - log
@@ -536,7 +560,6 @@ final class AppModel: ObservableObject {
                 self.lastActionTime = Date()
                 return
             }
-            self.writeConfig()
             self.append("inject: kernel sẵn sàng → cài \(patch.name) vào \(game.title)")
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = Installer.install(patch: patch.url, into: game)
@@ -552,6 +575,7 @@ final class AppModel: ObservableObject {
                         return
                     }
                     self.append("inject: " + result.message)
+                    self.writeConfig()
                     self.refreshInstalled()
                     self.statusText = "Đã cài — chuẩn bị mở game…"
 
