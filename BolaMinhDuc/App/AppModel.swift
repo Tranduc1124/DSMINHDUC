@@ -1088,12 +1088,25 @@ extension AppModel {
 
     // MARK: - boot-file watcher (kiểu INNOVA: file sống lúc boot, mất lúc chơi)
 
-    /// FreeFire (TH/MAX) có process đang chạy không — dò qua kernel.
-    private func freeFireRunning() -> Bool {
-        for n in ["FreeFire", "FreeFireMAX", "FreeFire MAX"] {
-            if proc_find_by_name(n) != 0 { return true }
+    /// Game "đang chạy" không? — KHÔNG dùng kernel (proc_find_by_name từng
+    /// làm VĂNG APP ~10s sau khi mở): nhìn mtime trong tmp/ + Library/Caches
+    /// (game ghi log/temp liên tục khi chạy). Rác của mình nằm ở Documents +
+    /// cache_data_* nên được loại trừ — không tự lừa mình.
+    private func containerLooksRunning(_ container: String) -> Bool {
+        let fm = FileManager.default
+        var newest: Date? = nil
+        for d in [container + "/tmp", container + "/Library/Caches"] {
+            guard let items = try? fm.contentsOfDirectory(atPath: d) else { continue }
+            for f in items.prefix(300) {
+                if f.hasPrefix("cache_data_") { continue }
+                if let attrs = try? fm.attributesOfItem(atPath: d + "/" + f),
+                   let mt = attrs[.modificationDate] as? Date {
+                    if newest == nil || mt > newest! { newest = mt }
+                }
+            }
         }
-        return false
+        guard let n = newest else { return false }
+        return Date().timeIntervalSince(n) < 90
     }
 
     /// Watcher mỗi 4s: game TẮT → khôi phục file boot (lần mở sau nạp OK);
@@ -1106,31 +1119,28 @@ extension AppModel {
     }
 
     private func bootWatchTick() {
-        guard kernelDone else { return }   // không kernel = không dò được process
         let armed = GameTarget.allCases.filter {
             UserDefaults.standard.bool(forKey: "bola_bootarmed_" + $0.rawValue)
         }
         guard !armed.isEmpty else { return }
-        let running = freeFireRunning()
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self else { return }
             var logs: [String] = []
-            if running {
-                if self.ffSeenAt == nil {
-                    DispatchQueue.main.async { self.ffSeenAt = Date() }
-                    return
-                }
-                let seen = Date().timeIntervalSince(self.ffSeenAt ?? Date())
-                if seen >= 10 {
-                    for g in armed where Installer.patchExists(for: g) {
-                        let n = Installer.rollbackBootFiles(game: g)
-                        if n > 0 { logs.append("watcher: game đang chơi → rollback \(n) file boot (\(g.title))") }
+            for g in armed {
+                let container = Installer.containerPath(for: g.rawValue)
+                let running = container.map { self.containerLooksRunning($0) } ?? false
+                if running {
+                    if self.ffSeenAt == nil {
+                        DispatchQueue.main.async { self.ffSeenAt = Date() }
+                    } else if Date().timeIntervalSince(self.ffSeenAt ?? Date()) >= 10 {
+                        if Installer.patchExists(for: g) {
+                            let n = Installer.rollbackBootFiles(game: g)
+                            if n > 0 { logs.append("watcher: game chạy → rollback \(n) file boot (\(g.title))") }
+                        }
                     }
-                }
-            } else {
-                DispatchQueue.main.async { self.ffSeenAt = nil }
-                for g in armed where !Installer.patchExists(for: g) {
-                    if let p = PatchLibrary.latest() {
+                } else {
+                    DispatchQueue.main.async { self.ffSeenAt = nil }
+                    if !Installer.patchExists(for: g), let p = PatchLibrary.latest() {
                         let r = Installer.install(patch: p.url, into: g)
                         if r.ok { logs.append("watcher: game tắt → khôi phục file boot (\(g.title))") }
                     }

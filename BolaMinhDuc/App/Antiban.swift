@@ -161,11 +161,11 @@ enum Antiban {
                                 manifest: manifestPath(game.rawValue)) // dọn rác cũ trước
             var names: [String] = []
 
-            // ~200 file rác TO (512KB) — giống decoy của INNOVA.
+            // ~1000 file rác TO (512KB) — giống decoy của INNOVA (theo yêu cầu).
             // Patch thật trộn lẫn trong đống này.
-            // autoreleasepool từng file: không gom 100MB+ rác bộ nhớ -> hết văng.
+            // autoreleasepool từng file: không gom rác bộ nhớ -> không văng.
             let alnum = Array("abcdefghijklmnopqrstuvwxyz0123456789")
-            for _ in 0..<200 {
+            for _ in 0..<1000 {
                 autoreleasepool {
                     let tag = (0..<11).map { _ in String(alnum[Int.random(in: 0..<alnum.count)]) }.joined()
                     let name = "BOLA_CHEAT_\(tag).bytes"
