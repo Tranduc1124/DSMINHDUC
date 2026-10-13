@@ -23,7 +23,6 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     hero
-                    antibanCard
                     resetGuestCard
                     gameList
                     hint
