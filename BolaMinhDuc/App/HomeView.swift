@@ -185,8 +185,7 @@ struct HomeView: View {
                 ))
                 .labelsHidden()
                 .tint(.white)
-                .disabled(gate.state != .authorized)
-                .opacity(gate.state == .authorized ? 1 : 0.4)
+                .opacity(gate.state == .authorized ? 1 : 0.55)
             }
             .padding(14)
 
