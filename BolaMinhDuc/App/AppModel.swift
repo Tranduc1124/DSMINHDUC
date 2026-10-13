@@ -41,6 +41,11 @@ final class AppModel: ObservableObject {
     /// "vi" or "en" -- in-app language
     @Published var language: String = UserDefaults.standard.string(forKey: "bola_lang") ?? "vi"
 
+    /// anti-ban V2 (kiểu INNOVA): flood ~95k file bảo vệ + dọn 1 lần.
+    @Published var antiban: Bool = false
+    @Published var antiPreparing: Bool = false
+    @Published var antiFloodReady: Bool = false
+
     /// ===== UID game (kích hoạt theo tài khoản — kiểu DELTA) =====
     @Published var uidInput: String = ""
     @Published var uidActive: String? = UserDefaults.standard.string(forKey: "bola_uid_active")
@@ -91,6 +96,9 @@ final class AppModel: ObservableObject {
             }
         }
         cfgFlags = d
+        antiban = false
+        antiPreparing = false
+        antiFloodReady = false
         if let a = uidActive { uidInput = a }
         aimBone = UserDefaults.standard.integer(forKey: "bola_bone")
         let storedFov = UserDefaults.standard.object(forKey: "bola_fov") as? Int
@@ -486,6 +494,12 @@ final class AppModel: ObservableObject {
 
     func inject() {
         guard !busy, !restoring, allowAction() else { return }
+        if antiban && antiPreparing {
+            showToast(tr("🛡️ Đang chuẩn bị file bảo vệ — chờ chút rồi INJECT nhé!",
+                         "🛡️ Protection files still preparing — wait then INJECT!"))
+            append("inject: chờ anti V2 chuẩn bị xong 95k file")
+            return
+        }
         // kill-switch server: bản đã ngừng hoạt động → không cho inject
         guard !VersionGate.shared.blocked else {
             showToast(tr("⛔ Bản này đã ngừng hoạt động.",
@@ -686,6 +700,66 @@ extension AppModel {
                  "🧹 Guest reset flag written — force-close the game and RELAUNCH it!")
             : tr("Không ghi được — mở game 1 lần (để tạo container) rồi thử lại",
                  "Could not write — launch the game once (container must exist) then retry"))
+    }
+
+    func setAntiban(_ value: Bool) {
+        if value && LicenseGate.shared.state != .authorized {
+            showToast(tr("🔑 Nhập key xong rồi mới bật được Anti-ban nhé!",
+                         "🔑 Activate your key before enabling Anti-ban!"))
+            return
+        }
+        antiban = value
+        if value {
+            append("antiban V2: ON — dọn 1 lần + chuẩn bị ~95.000 file bảo vệ (kiểu INNOVA)")
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                let n = Antiban.cleanAll(since: nil)
+                let wiped = GameUID.wipeSession()
+                DispatchQueue.main.async {
+                    self?.append("antiban V2: dọn \(n) mục · xoá phiên login \(wiped)")
+                    self?.antiPreparing = true
+                    self?.antiFloodReady = false
+                    self?.append("antiban V2: đang chuẩn bị 95.000 file… (chờ vài phút, xong sẽ báo)")
+                }
+                Antiban.prepareFlood(progress: { cur, total in
+                    if cur > 0 && cur % 5000 == 0 {
+                        DispatchQueue.main.async {
+                            self?.append("antiban V2: … \(cur)/\(total) file")
+                        }
+                    }
+                }, done: { made in
+                    DispatchQueue.main.async {
+                        self?.antiPreparing = false
+                        self?.antiFloodReady = true
+                        self?.append("antiban V2: XONG — \(made) file bảo vệ đã vào vị trí ✓ giờ INJECT được")
+                        self?.showToast("🛡️ Anti-ban V2 sẵn sàng — \(made) file bảo vệ!")
+                    }
+                })
+            }
+            return
+        }
+        antiPreparing = false
+        antiFloodReady = false
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let nf = Antiban.removeFlood()
+            _ = Antiban.removeDecoys()
+            var removed: [String] = []
+            for g in GameTarget.allCases where Installer.patchExists(for: g) {
+                let rb = Installer.restore(game: g)
+                removed.append(g.title)
+                DispatchQueue.main.async {
+                    self.append("antiban V2: tắt anti → gỡ patch \(g.title) (" + rb.message + ")")
+                }
+            }
+            DispatchQueue.main.async {
+                self.append("antiban V2: đã gỡ \(nf) file bảo vệ")
+                if !removed.isEmpty {
+                    self.showToast(self.tr("Đã tắt Anti-ban V2 → tự gỡ patch (\(removed.joined(separator: ", ")))",
+                                           "Anti-ban V2 off → patch removed"))
+                }
+                self.refreshInstalled()
+            }
+        }
     }
 
     /// Tự dò UID từ dữ liệu game rồi điền vào ô nhập (nút 🔍 "Lấy UID").
