@@ -23,7 +23,6 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     hero
-                    antibanCard
                     resetGuestCard
                     gameList
                     hint
@@ -35,15 +34,6 @@ struct HomeView: View {
             }
         }
         .safeAreaInset(edge: .bottom) { keyBar }
-        .overlay(alignment: .bottom) {
-            if model.antiSheetVisible {
-                antiSheet
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 74)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: model.antiSheetVisible)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             appear = true
@@ -60,41 +50,6 @@ struct HomeView: View {
             d[g.rawValue] = Installer.isGameDetected(g.rawValue)
         }
         detected = d
-    }
-
-    // MARK: anti sheet (nhỏ, đáy màn hình — không lộ thông tin)
-
-    private var antiSheet: some View {
-        VStack(spacing: 10) {
-            if model.antiFloodReady {
-                HStack(spacing: 9) {
-                    Image(systemName: "checkmark.shield.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text(model.tr("Anti đã được bật", "Anti-ban enabled"))
-                        .font(.system(size: 14, weight: .bold))
-                }
-                .foregroundColor(.white)
-            } else {
-                Text(model.tr("Đang chuẩn bị…", "Preparing…"))
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
-                ProgressView(value: Double(model.antiPercent), total: 100)
-                    .tint(.white)
-                Text("\(model.antiPercent)%")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Theme.dim)
-            }
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 13)
-        .frame(maxWidth: 320)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Theme.border, lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.4), radius: 14, y: 6)
     }
 
     // MARK: hero
@@ -191,58 +146,6 @@ struct HomeView: View {
                 .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
-    }
-
-    // MARK: anti-ban
-
-    private var antibanCard: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 13) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .fill(Theme.cardHi)
-                        .frame(width: 44, height: 44)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                .stroke(Theme.border, lineWidth: 1)
-                        )
-                    Image(systemName: "shield.lefthalf.filled")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(model.tr("Anti-ban", "Anti-ban"))
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(.white)
-                    Text(gate.state == .authorized
-                         ? model.tr("Mặc định tắt mỗi lần mở app — bật lại khi cần",
-                                    "Off by default each launch — enable when needed")
-                         : model.tr("🔑 Nhập key trước để bật", "🔑 Activate your key first"))
-                        .font(.caption2)
-                        .foregroundColor(Theme.dim)
-                        .lineLimit(1)
-                }
-                Spacer()
-                Toggle("", isOn: Binding(
-                    get: { model.antiban },
-                    set: { model.setAntiban($0) }
-                ))
-                .labelsHidden()
-                .tint(.white)
-                .opacity(gate.state == .authorized ? 1 : 0.55)
-            }
-            .padding(14)
-
-        }
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Theme.border, lineWidth: 1)
-        )
-        .opacity(appear ? 1 : 0)
-        .offset(y: appear ? 0 : 12)
-        .animation(.easeOut(duration: 0.4).delay(0.06), value: appear)
     }
 
     // MARK: reset guest

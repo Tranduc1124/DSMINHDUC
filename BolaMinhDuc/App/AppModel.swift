@@ -42,11 +42,6 @@ final class AppModel: ObservableObject {
     @Published var language: String = UserDefaults.standard.string(forKey: "bola_lang") ?? "vi"
 
     /// anti-ban V2 (kiểu INNOVA): flood ~95k file bảo vệ + dọn 1 lần.
-    @Published var antiban: Bool = false
-    @Published var antiPreparing: Bool = false
-    @Published var antiFloodReady: Bool = false
-    @Published var antiSheetVisible: Bool = false
-    @Published var antiPercent: Int = 0
 
     /// ===== UID game (kích hoạt theo tài khoản — kiểu DELTA) =====
     @Published var uidInput: String = ""
@@ -98,9 +93,13 @@ final class AppModel: ObservableObject {
             }
         }
         cfgFlags = d
-        antiban = false
-        antiPreparing = false
-        antiFloodReady = false
+        // (v211) Anti V2 (flood 95k) đã bỏ — dọn 1 lần đống file cũ trên máy.
+        if !UserDefaults.standard.bool(forKey: "bola_oldflood_cleaned_v211") {
+            UserDefaults.standard.set(true, forKey: "bola_oldflood_cleaned_v211")
+            DispatchQueue.global(qos: .utility).async {
+                _ = Antiban.removeFlood()
+            }
+        }
         if let a = uidActive { uidInput = a }
         aimBone = UserDefaults.standard.integer(forKey: "bola_bone")
         let storedFov = UserDefaults.standard.object(forKey: "bola_fov") as? Int
@@ -496,12 +495,6 @@ final class AppModel: ObservableObject {
 
     func inject() {
         guard !busy, !restoring, allowAction() else { return }
-        if antiban && antiPreparing {
-            showToast(tr("🛡️ Anti đang bật — chờ chút rồi INJECT nhé!",
-                         "🛡️ Anti-ban is enabling — wait a bit then INJECT!"))
-            append("inject: chờ anti chuẩn bị")
-            return
-        }
         // kill-switch server: bản đã ngừng hoạt động → không cho inject
         guard !VersionGate.shared.blocked else {
             showToast(tr("⛔ Bản này đã ngừng hoạt động.",
@@ -702,87 +695,6 @@ extension AppModel {
                  "🧹 Guest reset flag written — force-close the game and RELAUNCH it!")
             : tr("Không ghi được — mở game 1 lần (để tạo container) rồi thử lại",
                  "Could not write — launch the game once (container must exist) then retry"))
-    }
-
-    func setAntiban(_ value: Bool) {
-        if value && LicenseGate.shared.state != .authorized {
-            showToast(tr("🔑 Nhập key xong rồi mới bật được Anti-ban nhé!",
-                         "🔑 Activate your key before enabling Anti-ban!"))
-            return
-        }
-        antiban = value
-        if value {
-            antiSheetVisible = true
-            antiPercent = 0
-            append("antiban: ON")
-            DispatchQueue.global(qos: .utility).async { [weak self] in
-                _ = Antiban.cleanAll(since: nil)
-                _ = GameUID.wipeSession()
-                // Đã có sẵn đủ file từ lần trước? → bật xong NGAY. Đếm file
-                // chạy NỀN (95k entry) nên UI không bị treo khi bấm.
-                if Antiban.floodDone() {
-                    DispatchQueue.main.async {
-                        guard let self else { return }
-                        self.antiPreparing = false
-                        self.antiFloodReady = true
-                        self.antiPercent = 100
-                        self.append("antiban: sẵn sàng ✓")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                            if self?.antiban == true { self?.antiSheetVisible = false }
-                        }
-                    }
-                    return
-                }
-                DispatchQueue.main.async {
-                    self?.antiPreparing = true
-                    self?.antiFloodReady = false
-                }
-                Antiban.prepareFlood(progress: { cur, total in
-                    let pct = min(99, cur * 100 / max(1, total))
-                    DispatchQueue.main.async {
-                        guard let self else { return }
-                        if pct != self.antiPercent {
-                            self.antiPercent = pct
-                            if pct % 10 == 0 {
-                                self.append("antiban: đang chuẩn bị… \(pct)%")
-                            }
-                        }
-                    }
-                }, done: { _ in
-                    DispatchQueue.main.async {
-                        guard let self else { return }
-                        self.antiPreparing = false
-                        self.antiFloodReady = true
-                        self.antiPercent = 100
-                        self.append("antiban: sẵn sàng ✓")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                            if self.antiban { self.antiSheetVisible = false }
-                        }
-                    }
-                })
-            }
-            return
-        }
-        antiSheetVisible = false
-        antiPreparing = false
-        antiFloodReady = false
-        antiPercent = 0
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self else { return }
-            _ = Antiban.removeDecoys()
-            var removed: [String] = []
-            for g in GameTarget.allCases where Installer.patchExists(for: g) {
-                _ = Installer.restore(game: g)
-                removed.append(g.title)
-            }
-            DispatchQueue.main.async {
-                self.append("antiban: đã tắt · file bảo vệ giữ nguyên (bật lại là xong ngay)" + (removed.isEmpty ? "" : " · gỡ patch " + removed.joined(separator: ", ")))
-                if !removed.isEmpty {
-                    self.showToast(self.tr("Đã tắt Anti-ban", "Anti-ban off"))
-                }
-                self.refreshInstalled()
-            }
-        }
     }
 
     /// Tự dò UID từ dữ liệu game rồi điền vào ô nhập (nút 🔍 "Lấy UID").

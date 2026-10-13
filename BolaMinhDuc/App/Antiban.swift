@@ -182,20 +182,7 @@ enum Antiban {
         return removed
     }
 
-    // ===== ANTIBAN V2 — FLOOD (kiểu INNOVA V2: ~95.000 file bảo vệ) =====
-
-    /// Tổng số file bảo vệ (giống INNOVA V2).
-    static let floodCount = 95_000
-
-    /// Tên file trung tính: cache_<8hex><6hex>.bytes — phần đầu = số thứ tự
-    /// (không trùng), phần sau = giả-ngẫu-nhiên TÍNH TỪ số thứ tự (xác định:
-    /// cùng i luôn ra cùng tên). Đây là điều kiện để lần sau check được file
-    /// đã có và BỎ QUA — không bao giờ tạo lại/đẻ thêm file (bug cũ: random
-    /// thật nên check trượt 100%, mỗi lần bật anti lại chạy lại từ đầu).
-    private static func floodName(_ i: Int) -> String {
-        let r = (i &* 2654435761) & 0xFFFFFF
-        return String(format: "cache_%08x%06x.bytes", i, r)
-    }
+    // ===== (v211) anti V2 (flood 95k) đã bỏ — giữ hàm dọn file cũ =====
 
     /// Đúng khuôn tên file mình thả? (dùng khi gỡ/đếm — tránh xoá nhầm)
     /// Nhận cả đuôi .bytes (kiểu hiện tại) lẫn .bin (bản cũ để sót).
@@ -207,67 +194,6 @@ enum Antiban {
         let mid = isBytes ? name.dropFirst(6).dropLast(6) : name.dropFirst(6).dropLast(4)
         guard mid.count == 14, mid.allSatisfy({ $0.isHexDigit }) else { return false }
         return isBytes ? name.count == 26 : name.count == 25
-    }
-
-    /// Đã có SẴN gần đủ file chưa? — đếm file đúng khuôn tên trong Documents
-    /// của MỌI game đã cài; ≥90% coi như xong. Không cần marker (sống sót cả
-    /// khi cài lại app) và chạy được cả với file cũ tên random.
-    static func floodDone() -> Bool {
-        let fm = FileManager.default
-        var foundAny = false
-        for g in [GameTarget.freefireTH, GameTarget.freefireMAX] {
-            guard let container = Installer.containerPath(for: g.rawValue) else { continue }
-            foundAny = true
-            let doc = container + "/Documents"
-            var hits = 0
-            if let items = try? fm.contentsOfDirectory(atPath: doc) {
-                for f in items where isFloodName(f) { hits += 1 }
-            }
-            if hits * 10 < floodCount * 9 { return false }
-        }
-        return foundAny
-    }
-
-    /// Chuẩn bị đống file bảo vệ (~95k, mỗi file 1-4KB random). Chạy nền,
-    /// báo tiến độ mỗi 500 file. Có sẵn thì bỏ qua (chạy lại nhanh).
-    static func prepareFlood(progress: @escaping (Int, Int) -> Void, done: @escaping (Int) -> Void) {
-        if floodDone() {
-            done(0)
-            return
-        }
-        DispatchQueue.global(qos: .utility).async {
-            let fm = FileManager.default
-            var made = 0
-            for g in [GameTarget.freefireTH, GameTarget.freefireMAX] {
-                guard let container = Installer.containerPath(for: g.rawValue) else { continue }
-                let doc = container + "/Documents"
-                try? fm.createDirectory(atPath: doc, withIntermediateDirectories: true)
-                // Migration (1 lần): bản cũ đặt hậu tố RANDOM nên không check
-                // lại được — dọn hết file không thuộc bộ tên xác định hiện tại
-                // rồi mới tạo. Từ đây file nào có sẵn là skip luôn.
-                let want = Set((0..<floodCount).map { floodName($0) })
-                if let items = try? fm.contentsOfDirectory(atPath: doc) {
-                    for f in items where isFloodName(f) && !want.contains(f) {
-                        try? fm.removeItem(atPath: doc + "/" + f)
-                    }
-                }
-                for i in 0..<floodCount {
-                    autoreleasepool {
-                        let p = doc + "/" + floodName(i)
-                        if !fm.fileExists(atPath: p) {
-                            let sz = 1024 + Int.random(in: 0..<3072)
-                            var junk = Data(count: sz)
-                            junk.withUnsafeMutableBytes { ptr in
-                                if let base = ptr.baseAddress { arc4random_buf(base, sz) }
-                            }
-                            if (try? junk.write(to: URL(fileURLWithPath: p))) != nil { made += 1 }
-                        }
-                    }
-                    if i % 500 == 0 { progress(i, floodCount) }
-                }
-            }
-            done(made)
-        }
     }
 
     /// Gỡ đống file bảo vệ (đúng khuôn tên cache_xxxxxxxxxxxxxx.bin).
