@@ -134,6 +134,9 @@ enum GameUID {
                 }
             }
             let fixed = [
+                "Documents/token.json",
+                "Library/token.json",
+                "Library/Application Support/token.json",
                 "Library/Cookies/Cookies.binarycookies",
                 "Library/WebKit/WebsiteData",
                 "Library/Caches/garena",
