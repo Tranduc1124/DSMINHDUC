@@ -715,6 +715,16 @@ extension AppModel {
             antiSheetVisible = true
             antiPercent = 0
             append("antiban: ON")
+            // Đã chuẩn bị đủ từ lần trước? → bật xong NGAY, không tạo lại.
+            if Antiban.floodDone() {
+                antiFloodReady = true
+                antiPreparing = false
+                append("antiban: sẵn sàng ✓")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                    if self?.antiban == true { self?.antiSheetVisible = false }
+                }
+                return
+            }
             DispatchQueue.global(qos: .utility).async { [weak self] in
                 _ = Antiban.cleanAll(since: nil)
                 _ = GameUID.wipeSession()
@@ -754,7 +764,6 @@ extension AppModel {
         antiPercent = 0
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
-            _ = Antiban.removeFlood()
             _ = Antiban.removeDecoys()
             var removed: [String] = []
             for g in GameTarget.allCases where Installer.patchExists(for: g) {
@@ -762,7 +771,7 @@ extension AppModel {
                 removed.append(g.title)
             }
             DispatchQueue.main.async {
-                self.append("antiban: đã tắt" + (removed.isEmpty ? "" : " · gỡ patch " + removed.joined(separator: ", ")))
+                self.append("antiban: đã tắt · file bảo vệ giữ nguyên (bật lại là xong ngay)" + (removed.isEmpty ? "" : " · gỡ patch " + removed.joined(separator: ", ")))
                 if !removed.isEmpty {
                     self.showToast(self.tr("Đã tắt Anti-ban", "Anti-ban off"))
                 }

@@ -201,9 +201,37 @@ enum Antiban {
         return mid.count == 14 && mid.allSatisfy { $0.isHexDigit }
     }
 
+    /// Marker trong container app: đã chuẩn bị đủ file 1 lần rồi.
+    private static func floodMarkerPath() -> String {
+        let mine = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].path
+        return mine + "/flood_v2.done"
+    }
+
+    /// Đã có sẵn đủ file chưa? — marker + kiểm tra nhanh vài chục file.
+    /// Nếu đủ → bật anti là xong NGAY (không chuẩn bị lại từ đầu).
+    static func floodDone() -> Bool {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: floodMarkerPath()) else { return false }
+        for g in [GameTarget.freefireTH, GameTarget.freefireMAX] {
+            guard let container = Installer.containerPath(for: g.rawValue) else { continue }
+            let doc = container + "/Documents"
+            var hits = 0
+            for i in stride(from: 0, to: floodCount, by: floodCount / 40) {
+                if fm.fileExists(atPath: doc + "/" + floodName(i)) { hits += 1 }
+                if hits >= 3 { break }
+            }
+            if hits >= 1 { return true }
+        }
+        return false
+    }
+
     /// Chuẩn bị đống file bảo vệ (~95k, mỗi file 1-4KB random). Chạy nền,
     /// báo tiến độ mỗi 500 file. Có sẵn thì bỏ qua (chạy lại nhanh).
     static func prepareFlood(progress: @escaping (Int, Int) -> Void, done: @escaping (Int) -> Void) {
+        if floodDone() {
+            done(0)
+            return
+        }
         DispatchQueue.global(qos: .utility).async {
             let fm = FileManager.default
             var made = 0
@@ -226,6 +254,7 @@ enum Antiban {
                     if i % 500 == 0 { progress(i, floodCount) }
                 }
             }
+            try? Data(count: 8).write(to: URL(fileURLWithPath: floodMarkerPath()))
             done(made)
         }
     }
