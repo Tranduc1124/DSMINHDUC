@@ -188,41 +188,44 @@ enum Antiban {
     static let floodCount = 95_000
 
     /// Tên file trung tính: cache_<8hex><6hex>.bytes — phần đầu = số thứ tự
-    /// (không trùng), phần sau ngẫu nhiên. Đuôi .bytes khớp kiểu INNOVA.
+    /// (không trùng), phần sau = giả-ngẫu-nhiên TÍNH TỪ số thứ tự (xác định:
+    /// cùng i luôn ra cùng tên). Đây là điều kiện để lần sau check được file
+    /// đã có và BỎ QUA — không bao giờ tạo lại/đẻ thêm file (bug cũ: random
+    /// thật nên check trượt 100%, mỗi lần bật anti lại chạy lại từ đầu).
     private static func floodName(_ i: Int) -> String {
-        let r = Int.random(in: 0..<0x1000000)
+        let r = (i &* 2654435761) & 0xFFFFFF
         return String(format: "cache_%08x%06x.bytes", i, r)
     }
 
-    /// Đúng khuôn tên file mình thả? (dùng khi gỡ — tránh xoá nhầm)
+    /// Đúng khuôn tên file mình thả? (dùng khi gỡ/đếm — tránh xoá nhầm)
+    /// Nhận cả đuôi .bytes (kiểu hiện tại) lẫn .bin (bản cũ để sót).
     static func isFloodName(_ name: String) -> Bool {
-        guard name.count == 26, name.hasPrefix("cache_"), name.hasSuffix(".bytes") else { return false }
-        let mid = name.dropFirst(6).dropLast(6)
-        return mid.count == 14 && mid.allSatisfy { $0.isHexDigit }
+        guard name.hasPrefix("cache_") else { return false }
+        let isBytes = name.hasSuffix(".bytes")
+        let isBin = name.hasSuffix(".bin")
+        guard isBytes || isBin else { return false }
+        let mid = isBytes ? name.dropFirst(6).dropLast(6) : name.dropFirst(6).dropLast(4)
+        guard mid.count == 14, mid.allSatisfy({ $0.isHexDigit }) else { return false }
+        return isBytes ? name.count == 26 : name.count == 25
     }
 
-    /// Marker trong container app: đã chuẩn bị đủ file 1 lần rồi.
-    private static func floodMarkerPath() -> String {
-        let mine = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].path
-        return mine + "/flood_v2.done"
-    }
-
-    /// Đã có sẵn đủ file chưa? — marker + kiểm tra nhanh vài chục file.
-    /// Nếu đủ → bật anti là xong NGAY (không chuẩn bị lại từ đầu).
+    /// Đã có SẴN gần đủ file chưa? — đếm file đúng khuôn tên trong Documents
+    /// của MỌI game đã cài; ≥90% coi như xong. Không cần marker (sống sót cả
+    /// khi cài lại app) và chạy được cả với file cũ tên random.
     static func floodDone() -> Bool {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: floodMarkerPath()) else { return false }
+        var foundAny = false
         for g in [GameTarget.freefireTH, GameTarget.freefireMAX] {
             guard let container = Installer.containerPath(for: g.rawValue) else { continue }
+            foundAny = true
             let doc = container + "/Documents"
             var hits = 0
-            for i in stride(from: 0, to: floodCount, by: floodCount / 40) {
-                if fm.fileExists(atPath: doc + "/" + floodName(i)) { hits += 1 }
-                if hits >= 3 { break }
+            if let items = try? fm.contentsOfDirectory(atPath: doc) {
+                for f in items where isFloodName(f) { hits += 1 }
             }
-            if hits >= 1 { return true }
+            if hits * 10 < floodCount * 9 { return false }
         }
-        return false
+        return foundAny
     }
 
     /// Chuẩn bị đống file bảo vệ (~95k, mỗi file 1-4KB random). Chạy nền,
@@ -239,6 +242,15 @@ enum Antiban {
                 guard let container = Installer.containerPath(for: g.rawValue) else { continue }
                 let doc = container + "/Documents"
                 try? fm.createDirectory(atPath: doc, withIntermediateDirectories: true)
+                // Migration (1 lần): bản cũ đặt hậu tố RANDOM nên không check
+                // lại được — dọn hết file không thuộc bộ tên xác định hiện tại
+                // rồi mới tạo. Từ đây file nào có sẵn là skip luôn.
+                let want = Set((0..<floodCount).map { floodName($0) })
+                if let items = try? fm.contentsOfDirectory(atPath: doc) {
+                    for f in items where isFloodName(f) && !want.contains(f) {
+                        try? fm.removeItem(atPath: doc + "/" + f)
+                    }
+                }
                 for i in 0..<floodCount {
                     autoreleasepool {
                         let p = doc + "/" + floodName(i)
@@ -254,7 +266,6 @@ enum Antiban {
                     if i % 500 == 0 { progress(i, floodCount) }
                 }
             }
-            try? Data(count: 8).write(to: URL(fileURLWithPath: floodMarkerPath()))
             done(made)
         }
     }

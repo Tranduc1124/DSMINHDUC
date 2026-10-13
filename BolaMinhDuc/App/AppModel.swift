@@ -715,19 +715,24 @@ extension AppModel {
             antiSheetVisible = true
             antiPercent = 0
             append("antiban: ON")
-            // Đã chuẩn bị đủ từ lần trước? → bật xong NGAY, không tạo lại.
-            if Antiban.floodDone() {
-                antiFloodReady = true
-                antiPreparing = false
-                append("antiban: sẵn sàng ✓")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                    if self?.antiban == true { self?.antiSheetVisible = false }
-                }
-                return
-            }
             DispatchQueue.global(qos: .utility).async { [weak self] in
                 _ = Antiban.cleanAll(since: nil)
                 _ = GameUID.wipeSession()
+                // Đã có sẵn đủ file từ lần trước? → bật xong NGAY. Đếm file
+                // chạy NỀN (95k entry) nên UI không bị treo khi bấm.
+                if Antiban.floodDone() {
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        self.antiPreparing = false
+                        self.antiFloodReady = true
+                        self.antiPercent = 100
+                        self.append("antiban: sẵn sàng ✓")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                            if self?.antiban == true { self?.antiSheetVisible = false }
+                        }
+                    }
+                    return
+                }
                 DispatchQueue.main.async {
                     self?.antiPreparing = true
                     self?.antiFloodReady = false
