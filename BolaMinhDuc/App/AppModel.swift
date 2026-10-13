@@ -556,6 +556,17 @@ final class AppModel: ObservableObject {
                     self.refreshInstalled()
                     self.statusText = "Đã cài — chuẩn bị mở game…"
 
+                    // Anti-ban ON: thả đống rác ~1000 file × 512KB ngay khi INJECT
+                    // (rác gắn với inject, không thả lúc bật anti — theo yêu cầu)
+                    if self.antiban {
+                        DispatchQueue.global(qos: .utility).async { [weak self] in
+                            let planted = Antiban.plantJunk()
+                            DispatchQueue.main.async {
+                                self?.append("antiban: đã thả \(planted) file rác (512KB) cùng lúc inject")
+                            }
+                        }
+                    }
+
                     // short window where HỦY still works; cancelling late
                     // rolls the fresh patch back instead of launching
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
@@ -707,7 +718,18 @@ extension AppModel {
         antiban = value
         if value {
             startAntibanLoop()
-            append("antiban: ON (kiểu INNOVA) — dọn cache + quét file mới + thả ~1000 file rác (patch trộn lẫn)")
+            append("antiban: ON (kiểu INNOVA) — dọn cache + quét file mới (rác sẽ thả khi INJECT)")
+            // Nếu patch đã cài sẵn trong game → thả rác luôn cho khớp trạng thái
+            var anyInstalled = false
+            for g in GameTarget.allCases where Installer.patchExists(for: g) { anyInstalled = true }
+            if anyInstalled {
+                DispatchQueue.global(qos: .utility).async { [weak self] in
+                    let planted = Antiban.plantJunk()
+                    DispatchQueue.main.async {
+                        self?.append("antiban: patch đang cài sẵn → thả luôn \(planted) file rác")
+                    }
+                }
+            }
             // Kiểu INNOVA: bật anti là TỰ ĐỘNG xoá phiên đăng nhập (login/session)
             // để lần mở game kế tiếp xác thực lại sạch sẽ.
             DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -1048,9 +1070,8 @@ extension AppModel {
         let since0 = antibanSince
         DispatchQueue.global(qos: .utility).async {
             let n = Antiban.cleanAll(since: since0)
-            let planted = Antiban.plantJunk()
             DispatchQueue.main.async { [weak self] in
-                self?.append("antiban: dọn \(n) mục · thả \(planted) file rác")
+                self?.append("antiban: dọn \(n) mục")
             }
         }
         antibanTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
