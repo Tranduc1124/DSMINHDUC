@@ -41,6 +41,10 @@ final class AppModel: ObservableObject {
     /// "vi" or "en" -- in-app language
     @Published var language: String = UserDefaults.standard.string(forKey: "bola_lang") ?? "vi"
 
+    /// anti-ban (kiểu INNOVA): thả ~1000 file rác 512KB + dọn cache telemetry
+    /// liên tục; bật là tự xoá phiên đăng nhập, tắt là tự gỡ patch.
+    @Published var antiban: Bool = false
+
     /// ===== UID game (kích hoạt theo tài khoản — kiểu DELTA) =====
     @Published var uidInput: String = ""
     @Published var uidActive: String? = UserDefaults.standard.string(forKey: "bola_uid_active")
@@ -61,6 +65,9 @@ final class AppModel: ObservableObject {
 
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
     private var cancelRequested = false
+
+    private var antibanTimer: Timer?
+    private var antibanSince: Date?
 
     /// anti double-tap: ignore INJECT/RESTORE right after any completed action
     private var lastActionTime = Date.distantPast
@@ -90,6 +97,10 @@ final class AppModel: ObservableObject {
             }
         }
         cfgFlags = d
+        // Anti-ban: không khôi phục trạng thái cũ — mỗi lần mở app đều OFF,
+        // phải tự bật lại (chỉ bật được sau khi key đã xác thực).
+        antiban = false
+        UserDefaults.standard.removeObject(forKey: "bola_antiban")
         if let a = uidActive { uidInput = a }
         aimBone = UserDefaults.standard.integer(forKey: "bola_bone")
         let storedFov = UserDefaults.standard.object(forKey: "bola_fov") as? Int
@@ -686,6 +697,54 @@ extension AppModel {
                  "Could not write — launch the game once (container must exist) then retry"))
     }
 
+    func setAntiban(_ value: Bool) {
+        // Anti-ban chỉ cho bật sau khi key đã xác thực xong
+        if value && LicenseGate.shared.state != .authorized {
+            showToast(tr("🔑 Nhập key xong rồi mới bật được Anti-ban nhé!",
+                         "🔑 Activate your key before enabling Anti-ban!"))
+            return
+        }
+        antiban = value
+        if value {
+            startAntibanLoop()
+            append("antiban: ON (kiểu INNOVA) — dọn cache + quét file mới + thả ~1000 file rác (patch trộn lẫn)")
+            // Kiểu INNOVA: bật anti là TỰ ĐỘNG xoá phiên đăng nhập (login/session)
+            // để lần mở game kế tiếp xác thực lại sạch sẽ.
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                let wiped = GameUID.wipeSession()
+                DispatchQueue.main.async {
+                    self?.append("antiban: tự động xoá phiên đăng nhập (\(wiped) mục) — kiểu INNOVA")
+                }
+            }
+            showToast(tr("🛡️ Đã bật Anti-ban — tự dọn dấu vết + xoá phiên đăng nhập (tắt sẽ tự gỡ patch)",
+                         "🛡️ Anti-ban on — wipes traces + login session (turning off auto-removes the patch)"))
+            return
+        }
+        // Turning anti-ban OFF while the patch is installed = instant
+        // uninject: stop the cleanup loop and pull the patch out of every
+        // game container it is in.
+        antibanTimer?.invalidate()
+        antibanTimer = nil
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            var removed: [String] = []
+            for g in GameTarget.allCases where Installer.patchExists(for: g) {
+                let rb = Installer.restore(game: g)
+                removed.append(g.title)
+                DispatchQueue.main.async {
+                    self.append("antiban: tắt anti → tự gỡ patch \(g.title) (" + rb.message + ")")
+                }
+            }
+            DispatchQueue.main.async {
+                if !removed.isEmpty {
+                    self.showToast(self.tr("Đã tắt Anti-ban → tự gỡ patch (\(removed.joined(separator: ", ")))",
+                                           "Anti-ban off → patch removed (\(removed.joined(separator: ", ")))"))
+                }
+                self.refreshInstalled()
+            }
+        }
+    }
+
     /// Tự dò UID từ dữ liệu game rồi điền vào ô nhập (nút 🔍 "Lấy UID").
     func detectUID() {
         guard !uidBusy else { return }
@@ -978,4 +1037,32 @@ extension AppModel {
         }
     }
 
+
+    /// Continuous anti-ban: giữ dọn cache telemetry trong lúc anti còn bật
+    /// (chạy cả khi app ở nền nhờ keep-alive audio).
+    func startAntibanLoop() {
+        guard antibanTimer == nil else { return }
+        // anti-ban chỉ chạy khi key đã xác thực xong
+        guard LicenseGate.shared.state == .authorized else { return }
+        if antibanSince == nil { antibanSince = Date() }
+        let since0 = antibanSince
+        DispatchQueue.global(qos: .utility).async {
+            let n = Antiban.cleanAll(since: since0)
+            let planted = Antiban.plantJunk()
+            DispatchQueue.main.async { [weak self] in
+                self?.append("antiban: dọn \(n) mục · thả \(planted) file rác")
+            }
+        }
+        antibanTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+            guard let self, self.antiban else { return }
+            guard LicenseGate.shared.state == .authorized else { return }
+            guard self.kernelDone
+                || Installer.hasAccess(to: GameTarget.freefireTH)
+                || Installer.hasAccess(to: GameTarget.freefireMAX) else { return }
+            let since = self.antibanSince
+            DispatchQueue.global(qos: .utility).async {
+                _ = Antiban.cleanAll(since: since)
+            }
+        }
+    }
 }

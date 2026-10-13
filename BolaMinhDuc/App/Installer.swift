@@ -273,6 +273,8 @@ enum Installer {
         // unject sạch: xoá luôn token để scan giữa/cuối trận không thấy gì
         try? fm.removeItem(atPath: docs + "/.bola_tok")
         try? fm.removeItem(atPath: docs + "/.bola_uid")
+        // decoy bait (kiểu INNOVA) — gỡ sạch khi unject
+        _ = Antiban.removeDecoys()
         return InstallOutcome(
             ok: true,
             message: had
