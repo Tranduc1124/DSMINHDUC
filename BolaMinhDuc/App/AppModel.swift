@@ -583,6 +583,17 @@ final class AppModel: ObservableObject {
                         self.phase = .active
                         self.statusText = "Đã inject — đang mở game"
                         self.launchGame()
+                        // Anti ON (kiểu INNOVA "rolledBack"): ~35s sau khi game mở
+                        // (patch đã nằm trong RAM) → dọn 2 file boot khỏi container.
+                        if self.antiban {
+                            let g = game
+                            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 35) { [weak self] in
+                                let n = Installer.rollbackBootFiles(game: g)
+                                DispatchQueue.main.async {
+                                    self?.append("antiban: rollback — dọn \(n) file boot khỏi container (cheat sống RAM)")
+                                }
+                            }
+                        }
                     }
                 }
             }

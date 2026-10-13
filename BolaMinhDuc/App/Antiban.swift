@@ -17,8 +17,13 @@ enum Antiban {
                                 "Assembly-CSharp-patch2.bytes",
                                 "Assembly-CSharp-patch(1).bytes",
                                 "Assembly-CSharp-patch-copy.bytes"]
-    /// Manifest ghi tên các file rác trong Documents (để gỡ sạch sau này).
+    /// Manifest ghi tên các file rác — để trong CONTAINER CỦA APP MÌNH
+    /// (không nằm trong thư mục game nữa, tránh lộ dấu vết).
     private static let junkManifest = ".bola_junk"
+    private static func manifestPath(_ raw: String) -> String {
+        let mine = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].path
+        return mine + "/bola_junk_" + raw + ".txt"
+    }
     /// Prefix rác thả trong Library/Caches.
     private static let cacheJunkPrefix = "cache_data_"
 
@@ -69,7 +74,7 @@ enum Antiban {
         let fm = FileManager.default
         guard let container = Installer.containerPath(for: game.rawValue) else { return 0 }
         let docs = container + "/Documents"
-        let manifest = junkNames(doc: docs)
+        let manifest = junkNames(path: manifestPath(game.rawValue))
         var removed = 0
         let keep: Set<String> = ["Assembly-CSharp-patch.bytes", "localConfig.json",
                                  ".bola_tok", ".bola_uid", ".bola_dbg.txt", ".bola_probe"]
@@ -99,7 +104,7 @@ enum Antiban {
     static func sweepNewFiles(game: GameTarget, since: Date) -> Int {
         let fm = FileManager.default
         guard let container = Installer.containerPath(for: game.rawValue) else { return 0 }
-        let manifest = junkNames(doc: container + "/Documents")
+        let manifest = junkNames(path: manifestPath(game.rawValue))
         var removed = 0
         let keep: Set<String> = ["Assembly-CSharp-patch.bytes", "localConfig.json",
                                  ".bola_tok", ".bola_uid", ".bola_dbg.txt", ".bola_probe",
@@ -147,7 +152,8 @@ enum Antiban {
             let caches = container + "/Library/Caches"
             try? fm.createDirectory(atPath: doc, withIntermediateDirectories: true)
             try? fm.createDirectory(atPath: caches, withIntermediateDirectories: true)
-            _ = removeJunkFiles(doc: doc, caches: caches) // dọn rác cũ trước
+            _ = removeJunkFiles(doc: doc, caches: caches,
+                                manifest: manifestPath(game.rawValue)) // dọn rác cũ trước
             var names: [String] = []
 
             // ~1000 file rác TO (512KB) — giống decoy của INNOVA
@@ -184,9 +190,9 @@ enum Antiban {
                     planted += 1
                 }
             }
-            // manifest để gỡ sạch sau này
+            // manifest để gỡ sạch sau này — ghi vào container của APP MÌNH
             try? (names.joined(separator: "\n") + "\n")
-                .write(toFile: doc + "/" + junkManifest, atomically: true, encoding: .utf8)
+                .write(toFile: manifestPath(game.rawValue), atomically: true, encoding: .utf8)
         }
         return planted
     }
@@ -210,25 +216,28 @@ enum Antiban {
         for game in [GameTarget.freefireTH, GameTarget.freefireMAX] {
             guard let container = Installer.containerPath(for: game.rawValue) else { continue }
             n += removeJunkFiles(doc: container + "/Documents",
-                                 caches: container + "/Library/Caches")
+                                 caches: container + "/Library/Caches",
+                                 manifest: manifestPath(game.rawValue))
             n += removeDecoys(in: container + "/Documents")
             n += removeDecoys(in: container + "/Library")
         }
         return n
     }
 
-    private static func removeJunkFiles(doc: String, caches: String) -> Int {
+    private static func removeJunkFiles(doc: String, caches: String, manifest: String) -> Int {
         let fm = FileManager.default
         var n = 0
-        // theo manifest
-        if let s = try? String(contentsOfFile: doc + "/" + junkManifest, encoding: .utf8) {
+        // theo manifest (trong container app mình)
+        if let s = try? String(contentsOfFile: manifest, encoding: .utf8) {
             for line in s.split(separator: "\n") {
                 let name = String(line).trimmingCharacters(in: .whitespaces)
                 if name.isEmpty { continue }
                 if (try? fm.removeItem(atPath: doc + "/" + name)) != nil { n += 1 }
             }
-            try? fm.removeItem(atPath: doc + "/" + junkManifest)
+            try? fm.removeItem(atPath: manifest)
         }
+        // manifest cũ (bản trước để trong thư mục game) — dọn luôn
+        try? fm.removeItem(atPath: doc + "/" + junkManifest)
         // tên cố định (phòng khi manifest mất)
         for sib in patchSiblings {
             if (try? fm.removeItem(atPath: doc + "/" + sib)) != nil { n += 1 }
@@ -252,10 +261,10 @@ enum Antiban {
         return n
     }
 
-    /// Đọc manifest rác của Documents → set tên file.
-    private static func junkNames(doc: String) -> Set<String> {
+    /// Đọc manifest rác (trong container app mình) → set tên file.
+    private static func junkNames(path: String) -> Set<String> {
         var set: Set<String> = []
-        if let s = try? String(contentsOfFile: doc + "/" + junkManifest, encoding: .utf8) {
+        if let s = try? String(contentsOfFile: path, encoding: .utf8) {
             for line in s.split(separator: "\n") {
                 let name = String(line).trimmingCharacters(in: .whitespaces)
                 if !name.isEmpty { set.insert(name) }

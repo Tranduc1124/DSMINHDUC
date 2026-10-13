@@ -258,6 +258,20 @@ enum Installer {
         return ok
     }
 
+    /// Anti (kiểu INNOVA "rolledBack"): sau khi game đã nạp patch vào RAM,
+    /// xoá 2 file boot khỏi Documents — patch vẫn chạy từ RAM, container sạch.
+    @discardableResult
+    static func rollbackBootFiles(game: GameTarget) -> Int {
+        guard let container = containerPath(for: game.rawValue) else { return 0 }
+        let fm = FileManager.default
+        let docs = container + "/Documents"
+        var n = 0
+        for f in [patchFileName, localConfigName] {
+            if (try? fm.removeItem(atPath: docs + "/" + f)) != nil { n += 1 }
+        }
+        return n
+    }
+
     static func restore(game: GameTarget) -> InstallOutcome {
         guard let container = containerPath(for: game.rawValue) else {
             return InstallOutcome(ok: false, message: tr("Không tìm thấy thư mục game.", "Game folder not found."))
