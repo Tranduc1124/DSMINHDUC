@@ -187,17 +187,17 @@ enum Antiban {
     /// Tổng số file bảo vệ (giống INNOVA V2).
     static let floodCount = 95_000
 
-    /// Tên file trung tính: cache_<8hex><6hex>.bin — phần đầu = số thứ tự
-    /// (không trùng), phần sau ngẫu nhiên.
+    /// Tên file trung tính: cache_<8hex><6hex>.bytes — phần đầu = số thứ tự
+    /// (không trùng), phần sau ngẫu nhiên. Đuôi .bytes khớp kiểu INNOVA.
     private static func floodName(_ i: Int) -> String {
         let r = Int.random(in: 0..<0x1000000)
-        return String(format: "cache_%08x%06x.bin", i, r)
+        return String(format: "cache_%08x%06x.bytes", i, r)
     }
 
     /// Đúng khuôn tên file mình thả? (dùng khi gỡ — tránh xoá nhầm)
     static func isFloodName(_ name: String) -> Bool {
-        guard name.count == 24, name.hasPrefix("cache_"), name.hasSuffix(".bin") else { return false }
-        let mid = name.dropFirst(6).dropLast(4)
+        guard name.count == 26, name.hasPrefix("cache_"), name.hasSuffix(".bytes") else { return false }
+        let mid = name.dropFirst(6).dropLast(6)
         return mid.count == 14 && mid.allSatisfy { $0.isHexDigit }
     }
 
