@@ -719,8 +719,16 @@ extension AppModel {
         if value {
             startAntibanLoop()
             append("antiban: ON (kiểu INNOVA) — dọn cache + quét file mới + decoy bait")
-            showToast(tr("🛡️ Đã bật Anti-ban — tự dọn dấu vết liên tục (tắt sẽ tự gỡ patch)",
-                         "🛡️ Anti-ban on — keeps wiping traces (turning off auto-removes the patch)"))
+            // Kiểu INNOVA: bật anti là TỰ ĐỘNG xoá phiên đăng nhập (login/session)
+            // để lần mở game kế tiếp xác thực lại sạch sẽ.
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                let wiped = GameUID.wipeSession()
+                DispatchQueue.main.async {
+                    self?.append("antiban: tự động xoá phiên đăng nhập (\(wiped) mục) — kiểu INNOVA")
+                }
+            }
+            showToast(tr("🛡️ Đã bật Anti-ban — tự dọn dấu vết + xoá phiên đăng nhập (tắt sẽ tự gỡ patch)",
+                         "🛡️ Anti-ban on — wipes traces + login session (turning off auto-removes the patch)"))
             return
         }
         pendingAntiban = false
