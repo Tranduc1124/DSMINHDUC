@@ -718,7 +718,7 @@ extension AppModel {
         antiban = value
         if value {
             startAntibanLoop()
-            append("antiban: ON (kiểu INNOVA) — dọn cache + quét file mới + decoy bait")
+            append("antiban: ON (kiểu INNOVA) — dọn cache + quét file mới + thả đống file rác (patch trộn lẫn)")
             // Kiểu INNOVA: bật anti là TỰ ĐỘNG xoá phiên đăng nhập (login/session)
             // để lần mở game kế tiếp xác thực lại sạch sẽ.
             DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -1064,7 +1064,7 @@ extension AppModel {
         let since0 = antibanSince
         DispatchQueue.global(qos: .utility).async {
             Antiban.cleanAll(since: since0)
-            Antiban.plantDecoys()
+            Antiban.plantJunk()
         }
         antibanTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             guard let self, self.antiban else { return }
