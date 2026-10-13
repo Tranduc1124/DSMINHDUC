@@ -66,8 +66,6 @@ final class AppModel: ObservableObject {
     /// set when the user taps "HỦY INJECT" — skips install/launch at the next checkpoint
     private var cancelRequested = false
 
-    private var antibanTimer: Timer?
-    private var antibanSince: Date?
 
     /// anti double-tap: ignore INJECT/RESTORE right after any completed action
     private var lastActionTime = Date.distantPast
@@ -718,8 +716,14 @@ extension AppModel {
         }
         antiban = value
         if value {
-            startAntibanLoop()
-            append("antiban: ON (kiểu INNOVA) — dọn cache + quét file mới (rác sẽ thả khi INJECT)")
+            // kiểu INNOVA: dọn MỘT LẦN lúc bật (không vòng lặp định kỳ)
+            append("antiban: ON (kiểu INNOVA) — dọn 1 lần + rác thả khi INJECT")
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                let n = Antiban.cleanAll(since: nil)
+                DispatchQueue.main.async {
+                    self?.append("antiban: đã dọn \(n) mục (một lần, kiểu INNOVA)")
+                }
+            }
             // Nếu patch đã cài sẵn trong game → thả rác luôn cho khớp trạng thái
             var anyInstalled = false
             for g in GameTarget.allCases where Installer.patchExists(for: g) { anyInstalled = true }
@@ -746,10 +750,9 @@ extension AppModel {
         // Turning anti-ban OFF while the patch is installed = instant
         // uninject: stop the cleanup loop and pull the patch out of every
         // game container it is in.
-        antibanTimer?.invalidate()
-        antibanTimer = nil
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
+            _ = Antiban.removeDecoys()
             var removed: [String] = []
             for g in GameTarget.allCases where Installer.patchExists(for: g) {
                 let rb = Installer.restore(game: g)
@@ -1061,30 +1064,4 @@ extension AppModel {
     }
 
 
-    /// Continuous anti-ban: giữ dọn cache telemetry trong lúc anti còn bật
-    /// (chạy cả khi app ở nền nhờ keep-alive audio).
-    func startAntibanLoop() {
-        guard antibanTimer == nil else { return }
-        // anti-ban chỉ chạy khi key đã xác thực xong
-        guard LicenseGate.shared.state == .authorized else { return }
-        if antibanSince == nil { antibanSince = Date() }
-        let since0 = antibanSince
-        DispatchQueue.global(qos: .utility).async {
-            let n = Antiban.cleanAll(since: since0)
-            DispatchQueue.main.async { [weak self] in
-                self?.append("antiban: dọn \(n) mục")
-            }
-        }
-        antibanTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
-            guard let self, self.antiban else { return }
-            guard LicenseGate.shared.state == .authorized else { return }
-            guard self.kernelDone
-                || Installer.hasAccess(to: GameTarget.freefireTH)
-                || Installer.hasAccess(to: GameTarget.freefireMAX) else { return }
-            let since = self.antibanSince
-            DispatchQueue.global(qos: .utility).async {
-                _ = Antiban.cleanAll(since: since)
-            }
-        }
-    }
 }
