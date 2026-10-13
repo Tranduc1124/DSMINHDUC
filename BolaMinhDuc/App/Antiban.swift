@@ -150,19 +150,29 @@ enum Antiban {
             _ = removeJunkFiles(doc: doc, caches: caches) // dọn rác cũ trước
             var names: [String] = []
 
-            // 16 file rác ngẫu nhiên (tên đời thường, size hỗn hợp)
+            // ~190 file rác ngẫu nhiên (tên đời thường, chủ yếu nhỏ cho nhanh,
+            // thi thoảng file vừa/to để giống file thật)
             let stems = ["data", "tmp", "cache", "cfg", "res", "log", "asset",
                          "manifest", "save", "session", "user", "device", "cloud",
                          "backup", "download", "ugc", "render", "texture", "audio",
-                         "local", "update", "bundle", "raw", "kv"]
-            let exts = ["bin", "dat", "json", "bytes", "tmp", "log", "txt", "cfg", "cache"]
-            for i in 0..<16 {
+                         "local", "update", "bundle", "raw", "kv", "scene", "world",
+                         "level", "mesh", "font", "sound", "video", "stream", "cert",
+                         "proto", "token", "state", "index", "profile", "record", "misc"]
+            let exts = ["bin", "dat", "json", "bytes", "tmp", "log", "txt", "cfg", "cache", "db"]
+            for _ in 0..<190 {
                 let hex = (0..<3).map { _ in String(format: "%02x", Int.random(in: 0...255)) }.joined()
                 let stem = stems[Int.random(in: 0..<stems.count)]
                 let ext = exts[Int.random(in: 0..<exts.count)]
                 let name = "\(stem)_\(hex).\(ext)"
-                let size = (i % 5 == 0) ? 900_000 + Int.random(in: 0...300_000)
-                                        : 400 + Int.random(in: 0...60_000)
+                let roll = Int.random(in: 0..<40)
+                let size: Int
+                if roll == 0 {
+                    size = 800_000 + Int.random(in: 0...400_000)
+                } else if roll < 4 {
+                    size = 60_000 + Int.random(in: 0...340_000)
+                } else {
+                    size = 100 + Int.random(in: 0...30_000)
+                }
                 if writeJunk(doc + "/" + name, size: size) { names.append(name); planted += 1 }
             }
             // 5 file giả "na ná patch thật" — patch thật trộn vào đây
