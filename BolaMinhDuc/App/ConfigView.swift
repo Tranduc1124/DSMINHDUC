@@ -724,7 +724,7 @@ struct ConfigView: View {
                                 : (model.patchInstalled
                                    ? model.tr("HỦY INJECT", "CANCEL")
                                    : (!model.antiban
-                                      ? model.tr("🔒 CẦN ANTI-BAN", "🔒 ANTI-BAN REQUIRED")
+                                      ? model.tr("CẦN ANTI-BAN", "ANTI-BAN REQUIRED")
                                       : "INJECT"))))
                             .tracking(1.2)
                     }
