@@ -25,7 +25,6 @@ struct HomeView: View {
                     hero
                     antibanCard
                     resetGuestCard
-                    logoutCard
                     gameList
                     hint
                     telegramCard
@@ -249,54 +248,6 @@ struct HomeView: View {
         .opacity(appear ? 1 : 0)
         .offset(y: appear ? 0 : 12)
         .animation(.easeOut(duration: 0.4).delay(0.09), value: appear)
-    }
-
-    // MARK: logout (đổi acc)
-
-    private var logoutCard: some View {
-        Button {
-            model.gameLogout()
-        } label: {
-            HStack(spacing: 13) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .fill(Theme.cardHi)
-                        .frame(width: 44, height: 44)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                .stroke(Theme.border, lineWidth: 1)
-                        )
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(model.tr("Đổi tài khoản — Xóa đăng nhập", "Switch account — Wipe login"))
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(.white)
-                    Text(model.tr("Xoá phiên/cookie login của game — mở game đăng nhập acc khác (tắt hẳn game trước!)",
-                                  "Wipe the game's session/cookies — reopen to sign in another account (force-close first!)"))
-                        .font(.caption2)
-                        .foregroundColor(Theme.dim)
-                        .lineLimit(2)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(Theme.dim)
-            }
-            .padding(14)
-            .background(Theme.card)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Theme.border, lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .opacity(appear ? 1 : 0)
-        .offset(y: appear ? 0 : 12)
-        .animation(.easeOut(duration: 0.4).delay(0.1), value: appear)
     }
 
     // MARK: games
