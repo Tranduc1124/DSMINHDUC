@@ -45,6 +45,8 @@ final class AppModel: ObservableObject {
     @Published var antiban: Bool = false
     @Published var antiPreparing: Bool = false
     @Published var antiFloodReady: Bool = false
+    @Published var antiSheetVisible: Bool = false
+    @Published var antiPercent: Int = 0
 
     /// ===== UID game (kích hoạt theo tài khoản — kiểu DELTA) =====
     @Published var uidInput: String = ""
@@ -495,9 +497,9 @@ final class AppModel: ObservableObject {
     func inject() {
         guard !busy, !restoring, allowAction() else { return }
         if antiban && antiPreparing {
-            showToast(tr("🛡️ Đang chuẩn bị file bảo vệ — chờ chút rồi INJECT nhé!",
-                         "🛡️ Protection files still preparing — wait then INJECT!"))
-            append("inject: chờ anti V2 chuẩn bị xong 95k file")
+            showToast(tr("🛡️ Anti đang bật — chờ chút rồi INJECT nhé!",
+                         "🛡️ Anti-ban is enabling — wait a bit then INJECT!"))
+            append("inject: chờ anti chuẩn bị")
             return
         }
         // kill-switch server: bản đã ngừng hoạt động → không cho inject
@@ -710,52 +712,59 @@ extension AppModel {
         }
         antiban = value
         if value {
-            append("antiban V2: ON — dọn 1 lần + chuẩn bị ~95.000 file bảo vệ (kiểu INNOVA)")
+            antiSheetVisible = true
+            antiPercent = 0
+            append("antiban: ON")
             DispatchQueue.global(qos: .utility).async { [weak self] in
-                let n = Antiban.cleanAll(since: nil)
-                let wiped = GameUID.wipeSession()
+                _ = Antiban.cleanAll(since: nil)
+                _ = GameUID.wipeSession()
                 DispatchQueue.main.async {
-                    self?.append("antiban V2: dọn \(n) mục · xoá phiên login \(wiped)")
                     self?.antiPreparing = true
                     self?.antiFloodReady = false
-                    self?.append("antiban V2: đang chuẩn bị 95.000 file… (chờ vài phút, xong sẽ báo)")
                 }
                 Antiban.prepareFlood(progress: { cur, total in
-                    if cur > 0 && cur % 5000 == 0 {
-                        DispatchQueue.main.async {
-                            self?.append("antiban V2: … \(cur)/\(total) file")
+                    let pct = min(99, cur * 100 / max(1, total))
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        if pct != self.antiPercent {
+                            self.antiPercent = pct
+                            if pct % 10 == 0 {
+                                self.append("antiban: đang chuẩn bị… \(pct)%")
+                            }
                         }
                     }
-                }, done: { made in
+                }, done: { _ in
                     DispatchQueue.main.async {
-                        self?.antiPreparing = false
-                        self?.antiFloodReady = true
-                        self?.append("antiban V2: XONG — \(made) file bảo vệ đã vào vị trí ✓ giờ INJECT được")
-                        self?.showToast("🛡️ Anti-ban V2 sẵn sàng — \(made) file bảo vệ!")
+                        guard let self else { return }
+                        self.antiPreparing = false
+                        self.antiFloodReady = true
+                        self.antiPercent = 100
+                        self.append("antiban: sẵn sàng ✓")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                            if self.antiban { self.antiSheetVisible = false }
+                        }
                     }
                 })
             }
             return
         }
+        antiSheetVisible = false
         antiPreparing = false
         antiFloodReady = false
+        antiPercent = 0
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
-            let nf = Antiban.removeFlood()
+            _ = Antiban.removeFlood()
             _ = Antiban.removeDecoys()
             var removed: [String] = []
             for g in GameTarget.allCases where Installer.patchExists(for: g) {
-                let rb = Installer.restore(game: g)
+                _ = Installer.restore(game: g)
                 removed.append(g.title)
-                DispatchQueue.main.async {
-                    self.append("antiban V2: tắt anti → gỡ patch \(g.title) (" + rb.message + ")")
-                }
             }
             DispatchQueue.main.async {
-                self.append("antiban V2: đã gỡ \(nf) file bảo vệ")
+                self.append("antiban: đã tắt" + (removed.isEmpty ? "" : " · gỡ patch " + removed.joined(separator: ", ")))
                 if !removed.isEmpty {
-                    self.showToast(self.tr("Đã tắt Anti-ban V2 → tự gỡ patch (\(removed.joined(separator: ", ")))",
-                                           "Anti-ban V2 off → patch removed"))
+                    self.showToast(self.tr("Đã tắt Anti-ban", "Anti-ban off"))
                 }
                 self.refreshInstalled()
             }

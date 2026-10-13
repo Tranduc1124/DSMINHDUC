@@ -35,6 +35,15 @@ struct HomeView: View {
             }
         }
         .safeAreaInset(edge: .bottom) { keyBar }
+        .overlay(alignment: .bottom) {
+            if model.antiSheetVisible {
+                antiSheet
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 74)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: model.antiSheetVisible)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             appear = true
@@ -51,6 +60,41 @@ struct HomeView: View {
             d[g.rawValue] = Installer.isGameDetected(g.rawValue)
         }
         detected = d
+    }
+
+    // MARK: anti sheet (nhỏ, đáy màn hình — không lộ thông tin)
+
+    private var antiSheet: some View {
+        VStack(spacing: 10) {
+            if model.antiFloodReady {
+                HStack(spacing: 9) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text(model.tr("Anti đã được bật", "Anti-ban enabled"))
+                        .font(.system(size: 14, weight: .bold))
+                }
+                .foregroundColor(.white)
+            } else {
+                Text(model.tr("Đang chuẩn bị…", "Preparing…"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                ProgressView(value: Double(model.antiPercent), total: 100)
+                    .tint(.white)
+                Text("\(model.antiPercent)%")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Theme.dim)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 13)
+        .frame(maxWidth: 320)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Theme.border, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.4), radius: 14, y: 6)
     }
 
     // MARK: hero
