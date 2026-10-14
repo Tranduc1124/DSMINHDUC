@@ -503,6 +503,12 @@ final class AppModel: ObservableObject {
 
     func inject() {
         guard !busy, !restoring, allowAction() else { return }
+        // chống bypass màn key: cần session SDK thật (seal + key)
+        guard LicenseGate.shared.isSessionValid else {
+            showToast(tr("🔑 Nhập key trước đã!", "🔑 Activate your key first!"))
+            append("inject: chặn — session key không hợp lệ")
+            return
+        }
         // kill-switch server: bản đã ngừng hoạt động → không cho inject
         guard !VersionGate.shared.blocked else {
             showToast(tr("⛔ Bản này đã ngừng hoạt động.",
@@ -622,6 +628,7 @@ final class AppModel: ObservableObject {
 
     func restore() {
         guard !busy, allowAction() else { return }
+        // unject vẫn cho phép khi session chết (gỡ rác), nhưng log rõ
         let game = self.game
         restoring = true
         busy = true
@@ -754,7 +761,7 @@ extension AppModel {
     /// thì ghi .bola_uid vào container game để patch trong game đối chiếu.
     func activateUID(_ uid: String? = nil) {
         guard !uidBusy else { return }
-        if LicenseGate.shared.state != .authorized {
+        if !LicenseGate.shared.isSessionValid {
             showToast(tr("🔑 Nhập key trước đã!", "🔑 Activate your key first!"))
             return
         }

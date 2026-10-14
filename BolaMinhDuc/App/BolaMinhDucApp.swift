@@ -8,7 +8,9 @@ struct BolaMinhDucApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if gate.state == .authorized {
+                // isSessionValid = state + seal + key thật từ SDK
+                // (patch 1 chỗ `state = .authorized` không đủ).
+                if gate.isSessionValid {
                     ContentView()
                         .environmentObject(model)
                         .overlay { BlockOverlay() }
@@ -24,7 +26,7 @@ struct BolaMinhDucApp: App {
                 LicenseGate.shared.start()
             }
             .onChange(of: gate.state) { st in
-                if st == .authorized {
+                if st == .authorized, gate.isSessionValid {
                     VersionGate.shared.check()
                     VersionGate.shared.startPeriodic()
                     model.bootstrap()

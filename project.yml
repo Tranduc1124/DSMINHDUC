@@ -30,13 +30,13 @@ targets:
     info:
       path: BolaMinhDuc/Info.plist
       properties:
-        CFBundleDisplayName: MinDo Cheat
+        # SpringBoard name only — in-app name/Tele XOR in AppBrand (không đọc plist).
+        CFBundleDisplayName: System Service
         CFBundleShortVersionString: "1.0.0"
-        CFBundleVersion: "1"
+        CFBundleVersion: "214"
         TserverPkgToken: pkg_6yNT9gnfWl9NjBw4vZw80CW9INCCUsNL
         BolaProduct: bola
         BolaOfflineMaxDays: 0
-        BolaTelegram: https://t.me/ntphax
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         UIApplicationSupportsIndirectInputEvents: true
@@ -84,13 +84,13 @@ targets:
     info:
       path: BolaMinhDuc/Info-IntexX.plist
       properties:
-        CFBundleDisplayName: IntexX
+        # SpringBoard name only — in-app name/Tele XOR in AppBrand (không đọc plist).
+        CFBundleDisplayName: System Service
         CFBundleShortVersionString: "1.0.0"
-        CFBundleVersion: "1"
+        CFBundleVersion: "214"
         TserverPkgToken: pkg_mTFXvnoFw3wHbPCO44Sxvb53LKNCJghQ
         BolaProduct: intexx
         BolaOfflineMaxDays: 3
-        BolaTelegram: https://t.me/intexxcheat
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         UIApplicationSupportsIndirectInputEvents: true

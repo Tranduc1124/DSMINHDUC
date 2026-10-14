@@ -299,7 +299,7 @@ struct HomeView: View {
         .animation(.easeOut(duration: 0.4).delay(0.3), value: appear)
     }
 
-    // MARK: telegram group (chỉ hiện ở bản có cấu hình BolaTelegram trong Info.plist)
+    // MARK: telegram group (URL XOR trong AppBrand — không đọc plist)
 
     @ViewBuilder
     private var telegramCard: some View {

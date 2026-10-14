@@ -51,27 +51,36 @@ enum PatchLibrary {
     /// (server attaches sha256(key) trailer). The bundled/GitHub copies have no
     /// trailer, so they are never injected — the patch gate would keep them off
     /// anyway, and failing early gives a clear message.
+    ///
+    /// Bypass màn key → licenseKey rỗng → luôn nil (không fallback bundle).
     static func latest() -> PatchFile? {
+        guard LicenseGate.shared.isSessionValid else { return nil }
         let license = LicenseGate.shared.licenseKey
+        guard !license.isEmpty else { return nil }
         let cache = remoteCacheURL
         let fm = FileManager.default
-        if !license.isEmpty,
-           let attrs = try? fm.attributesOfItem(atPath: cache.path),
-           let size = attrs[.size] as? Int, size > 4096,
-           hasValidTrailer(cache, license: license) {
-            return PatchFile(url: cache,
-                             name: "BolaminhducMenu-OTA",
-                             size: size,
-                             bundled: false)
-        }
-        return nil
+        guard let attrs = try? fm.attributesOfItem(atPath: cache.path),
+              let size = attrs[.size] as? Int, size > 4096,
+              hasValidTrailer(cache, license: license) else { return nil }
+        return PatchFile(url: cache,
+                         name: "BolaminhducMenu-OTA",
+                         size: size,
+                         bundled: false)
     }
 
-    /// Checks the 64-byte personalisation trailer: "|BOLATK1|" + sha256(key)[0:16]
+    /// Magic trailer "|BOLATK1|" — XOR-encode trong binary (không lộ plain string).
+    private static var trailerMagic: String {
+        let enc: [UInt8] = [38, 24, 21, 22, 27, 14, 17, 107, 38] // XOR 0x5A
+        return String(bytes: enc.map { $0 ^ 0x5A }, encoding: .utf8) ?? ""
+    }
+
+    /// Checks the 64-byte personalisation trailer: magic + sha256(key)[0:16]
     static func hasValidTrailer(_ url: URL, license: String) -> Bool {
         guard let data = try? Data(contentsOf: url), data.count > 128, !license.isEmpty else { return false }
+        let magic = trailerMagic
+        guard !magic.isEmpty else { return false }
         let tail = data.suffix(64)
-        guard let s = String(data: tail, encoding: .utf8), s.hasPrefix("|BOLATK1|") else { return false }
+        guard let s = String(data: tail, encoding: .utf8), s.hasPrefix(magic) else { return false }
         let parts = s.split(separator: "|", omittingEmptySubsequences: false)
         // ["", "BOLATK1", licHash, exp, "0000…"]
         guard parts.count >= 4 else { return false }

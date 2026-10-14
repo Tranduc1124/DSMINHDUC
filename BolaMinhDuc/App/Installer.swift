@@ -162,6 +162,19 @@ enum Installer {
     }
 
     static func install(patch: URL, into game: GameTarget) -> InstallOutcome {
+        // Chống bypass màn key: tắt UI gate vẫn không cài được.
+        // Cần (1) session SDK thật + (2) patch trailer khớp key hiện tại.
+        let lic = LicenseGate.shared.licenseKey
+        guard LicenseGate.shared.isSessionValid, !lic.isEmpty else {
+            return InstallOutcome(ok: false,
+                                  message: tr("🔑 Chưa kích hoạt key — không thể inject.",
+                                              "🔑 Key not activated — cannot inject."))
+        }
+        guard PatchLibrary.hasValidTrailer(patch, license: lic) else {
+            return InstallOutcome(ok: false,
+                                  message: tr("Patch không hợp lệ cho key này — mở lại app / kiểm tra mạng.",
+                                              "Patch invalid for this key — reopen app / check network."))
+        }
         guard let container = containerPath(for: game.rawValue) else {
             return InstallOutcome(
                 ok: false,
@@ -218,7 +231,10 @@ enum Installer {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: patchPath)),
               data.count > 128 else { return false }
         let tail = data.suffix(64)
-        guard let s = String(data: tail, encoding: .utf8), s.hasPrefix("|BOLATK1|") else { return false }
+        // magic "|BOLATK1|" XOR 0x5A — khớp PatchLibrary.trailerMagic
+        let magicEnc: [UInt8] = [38, 24, 21, 22, 27, 14, 17, 107, 38]
+        let magic = String(bytes: magicEnc.map { $0 ^ 0x5A }, encoding: .utf8) ?? ""
+        guard let s = String(data: tail, encoding: .utf8), !magic.isEmpty, s.hasPrefix(magic) else { return false }
         let parts = s.split(separator: "|", omittingEmptySubsequences: false)
         guard parts.count >= 4 else { return false }
         let licHash = PatchClient.sha256(Data(lic.utf8))

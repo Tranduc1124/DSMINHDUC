@@ -7,6 +7,9 @@ import UIKit
 /// - Trước khi xác thực BẮT BUỘC phải nạp package token bằng
 ///   APIClientConfigure(...) — thiếu bước này SDK báo
 ///   "Thiếu cấu hình xác thực." (missing_auth_config) và không gửi request nào.
+///
+/// Chống bypass màn key: ngoài `state == .authorized` còn cần `authSeal`
+/// khớp hash(key+pkg) — patch 1 chỗ `state` không đủ để inject.
 final class LicenseGate: ObservableObject {
     static let shared = LicenseGate()
 
@@ -26,6 +29,9 @@ final class LicenseGate: ObservableObject {
     /// mang đúng hạn của KEY (thay vì luôn 30 ngày).
     var leaseExpiryUnix: Int = 0
 
+    /// Seal chống bypass: chỉ set trong onAuthorized callback thật của SDK.
+    private(set) var authSeal: UInt64 = 0
+
     private var started = false
     private var activated = false
 
@@ -42,16 +48,20 @@ final class LicenseGate: ObservableObject {
         APIClient.startAuthorization({ [weak self] in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                self.state = .authorized
+                // seal TRƯỚC state — SwiftUI đọc isSessionValid ngay khi state publish
                 self.errorText = ""
                 self.afterAuthorized()
+                self.state = .authorized
             }
         }, onRevoked: { [weak self] in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                self.state = .needKey
+                self.authSeal = 0
+                self.activated = false
+                self.leaseExpiryUnix = 0
                 self.statusText = "Lease"
                 self.errorText = "Key hết hạn hoặc bị thu hồi — nhập key mới."
+                self.state = .needKey
             }
         }, onTerminal: { [weak self] res in
             NSLog("tserver terminal: %@", String(describing: res))
@@ -71,6 +81,14 @@ final class LicenseGate: ObservableObject {
     /// Key hiện tại (SDK giữ lease; app dùng cho các API server patch).
     var licenseKey: String {
         return APIClient.currentKeyText()
+    }
+
+    /// True chỉ khi SDK thật sự authorize + seal khớp (chống patch `state`).
+    var isSessionValid: Bool {
+        guard state == .authorized else { return false }
+        let k = licenseKey
+        guard !k.isEmpty else { return false }
+        return authSeal != 0 && authSeal == Self.computeSeal(key: k)
     }
 
     /// Package token theo target (BolaMinhDuc vs IntexX).
@@ -94,8 +112,21 @@ final class LicenseGate: ObservableObject {
         return (Bundle.main.object(forInfoDictionaryKey: "BolaOfflineMaxDays") as? Int) ?? 0
     }
 
+    private static func computeSeal(key: String) -> UInt64 {
+        // FNV-1a 64 trên "key|pkg|product" — không dùng crypto nặng; đủ chống patch 1 chỗ.
+        let raw = "\(key)|\(packageToken)|\(productId)"
+        var h: UInt64 = 0xcbf29ce484222325
+        for b in raw.utf8 {
+            h ^= UInt64(b)
+            h = h &* 0x100000001b3
+        }
+        return h
+    }
+
     private func afterAuthorized() {
         remainingText = APIClient.currentKeyRemainingText()
+        let k = licenseKey
+        authSeal = k.isEmpty ? 0 : Self.computeSeal(key: k)
         if let info = APIClient.currentKeyInfo() {
             NSLog("tserver key info: %@", String(describing: info))
             // hạn còn lại của key → đóng vào patch (server cap 30 ngày).
