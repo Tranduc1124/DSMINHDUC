@@ -184,10 +184,9 @@ enum Installer {
             }
             try fm.copyItem(atPath: patch.path, toPath: dest)
 
-            // (v212) dọn file cũ nếu còn: .bola_tok (patch không đọc nữa) +
-            // bolacfg.bin (config chuyển vào đuôi patch + master ở app mình).
+            // (v213) patch không đọc .bola_tok — dọn nếu còn.
+            // (bolacfg.bin là config của patch — KHÔNG xoá!)
             try? fm.removeItem(atPath: docs + "/.bola_tok")
-            try? fm.removeItem(atPath: docs + "/bolacfg.bin")
 
             // community config shipped with the patch (local-json fix)
             if let cfg = Bundle.main.url(forResource: "localConfig", withExtension: "json") {
