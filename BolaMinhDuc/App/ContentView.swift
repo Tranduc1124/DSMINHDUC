@@ -35,12 +35,15 @@ struct ContentView: View {
         }
         .overlay { languageOverlay }
         .onAppear {
+            // Lớp UI: ContentView hiện nhưng session giả → đá về màn key
+            guard LicenseGate.shared.revalidate() else { return }
             model.bootstrap()
             BackgroundAudio.shared.ensureRunning()
         }
         .onChange(of: scenePhase) { phase in
             BackgroundAudio.shared.ensureRunning()
             if phase == .active {
+                guard LicenseGate.shared.revalidate() else { return }
                 model.bootstrap()
                 model.refreshInstalled()
             }

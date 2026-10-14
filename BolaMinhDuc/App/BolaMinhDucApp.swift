@@ -7,17 +7,29 @@ struct BolaMinhDucApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                // isSessionValid = state + seal + key thật từ SDK
-                // (patch 1 chỗ `state = .authorized` không đủ).
-                if gate.isSessionValid {
+            // KeyScreen LUÔN là root — ContentView chỉ overlay khi canEnterApp.
+            // Patch nhánh if một chỗ vẫn còn KeyScreen bên dưới + watchdog kéo về.
+            ZStack {
+                KeyScreenView()
+
+                if gate.canEnterApp {
                     ContentView()
                         .environmentObject(model)
                         .overlay { BlockOverlay() }
-                } else {
-                    KeyScreenView()
+                        .transition(.opacity)
+                        .onAppear {
+                            // Lớp 2: vào ContentView mà seal/server chết → đá về key
+                            if !LicenseGate.shared.revalidate() {
+                                model.append("gate: ContentView bị đá — session giả")
+                            } else {
+                                VersionGate.shared.check()
+                                VersionGate.shared.startPeriodic()
+                                model.bootstrap()
+                            }
+                        }
                 }
             }
+            .animation(.easeInOut(duration: 0.25), value: gate.canEnterApp)
             .preferredColorScheme(.dark)
             .onOpenURL { url in
                 _ = APIClientHandleOpenURL(url)
@@ -25,8 +37,8 @@ struct BolaMinhDucApp: App {
             .onAppear {
                 LicenseGate.shared.start()
             }
-            .onChange(of: gate.state) { st in
-                if st == .authorized, gate.isSessionValid {
+            .onChange(of: gate.canEnterApp) { ok in
+                if ok {
                     VersionGate.shared.check()
                     VersionGate.shared.startPeriodic()
                     model.bootstrap()

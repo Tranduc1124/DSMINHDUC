@@ -163,9 +163,11 @@ enum Installer {
 
     static func install(patch: URL, into game: GameTarget) -> InstallOutcome {
         // Chống bypass màn key: tắt UI gate vẫn không cài được.
-        // Cần (1) session SDK thật + (2) patch trailer khớp key hiện tại.
+        // Cần canEnterApp (seal+server) + trailer khớp key.
         let lic = LicenseGate.shared.licenseKey
-        guard LicenseGate.shared.isSessionValid, !lic.isEmpty else {
+        guard LicenseGate.shared.canEnterApp,
+              LicenseGate.shared.revalidate(),
+              !lic.isEmpty else {
             return InstallOutcome(ok: false,
                                   message: tr("🔑 Chưa kích hoạt key — không thể inject.",
                                               "🔑 Key not activated — cannot inject."))

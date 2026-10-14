@@ -1,15 +1,13 @@
 import Foundation
 import UIKit
 
-/// Cổng license — SDK Tserver 2.1.3 (activation-terminal), gói tối giản:
-/// - App CHỈ CHỜ; bảng nhập key là của hệ thống (SDK/UI pack tự hiện).
-/// - onAuthorized → vào giao diện chính; onRevoked → quay về màn chờ.
-/// - Trước khi xác thực BẮT BUỘC phải nạp package token bằng
-///   APIClientConfigure(...) — thiếu bước này SDK báo
-///   "Thiếu cấu hình xác thực." (missing_auth_config) và không gửi request nào.
+/// Cổng license — SDK Tserver 2.1.3 (activation-terminal).
 ///
-/// Chống bypass màn key: ngoài `state == .authorized` còn cần `authSeal`
-/// khớp hash(key+pkg) — patch 1 chỗ `state` không đủ để inject.
+/// Chống bypass màn key (nhiều lớp):
+/// 1) `authSeal` chỉ set trong callback SDK thật (hash key|pkg|product)
+/// 2) `serverUnlocked` chỉ set sau activate server OK (hoặc offline grace)
+/// 3) `canEnterApp` = cả 3 điều kiện — SwiftUI / inject / install đều dùng cái này
+/// 4) Watchdog định kỳ gọi `revalidate()` — mất điều kiện → kéo về màn key
 final class LicenseGate: ObservableObject {
     static let shared = LicenseGate()
 
@@ -20,48 +18,41 @@ final class LicenseGate: ObservableObject {
     }
 
     @Published var state: State = .starting
+    /// Cờ UI duy nhất để hiện ContentView — KHÔNG set tay ngoài afterAuthorized.
+    @Published private(set) var canEnterApp: Bool = false
     @Published var statusText: String = ""
     @Published var remainingText: String = ""
     @Published var busy = false
     @Published var errorText: String = ""
 
-    /// Unix time khi lease hết hạn (0 = chưa biết) — gửi lên server để patch
-    /// mang đúng hạn của KEY (thay vì luôn 30 ngày).
+    /// Unix time khi lease hết hạn (0 = chưa biết).
     var leaseExpiryUnix: Int = 0
 
     /// Seal chống bypass: chỉ set trong onAuthorized callback thật của SDK.
     private(set) var authSeal: UInt64 = 0
+    /// Server đã xác nhận thiết bị (activate OK).
+    private(set) var serverUnlocked: Bool = false
 
     private var started = false
     private var activated = false
+    private var watchdog: Timer?
 
     func start() {
         guard !started else { return }
         started = true
 
-        // Nạp UI pack native của SDK (bảng nhập key / gate UI) — cần cho app sideload.
         TserverForceLoadNativeUiPacks()
-
-        // BẮT BUỘC: nạp package token trước khi xác thực (mỗi bản 1 pkg).
         APIClientConfigure(Self.packageToken)
 
         APIClient.startAuthorization({ [weak self] in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                // seal TRƯỚC state — SwiftUI đọc isSessionValid ngay khi state publish
                 self.errorText = ""
-                self.afterAuthorized()
-                self.state = .authorized
+                self.beginAuthorizedFlow()
             }
         }, onRevoked: { [weak self] in
             DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.authSeal = 0
-                self.activated = false
-                self.leaseExpiryUnix = 0
-                self.statusText = "Lease"
-                self.errorText = "Key hết hạn hoặc bị thu hồi — nhập key mới."
-                self.state = .needKey
+                self?.lockOut(reason: "Key hết hạn hoặc bị thu hồi — nhập key mới.")
             }
         }, onTerminal: { [weak self] res in
             NSLog("tserver terminal: %@", String(describing: res))
@@ -71,27 +62,26 @@ final class LicenseGate: ObservableObject {
                 let msg = (res["message"] as? String) ?? ""
                 self.statusText = st
                 if !msg.isEmpty { self.errorText = msg }
-                // terminal = lỗi cuối của luồng kích hoạt (key sai, hết hạn,
-                // bảo trì, thiếu cấu hình…) — vẫn ở màn chờ xác thực.
-                if self.state != .authorized { self.state = .needKey }
+                if !self.canEnterApp {
+                    self.state = .needKey
+                }
             }
         })
+
+        startWatchdog()
     }
 
-    /// Key hiện tại (SDK giữ lease; app dùng cho các API server patch).
+    /// Key hiện tại (SDK giữ lease).
     var licenseKey: String {
         return APIClient.currentKeyText()
     }
 
-    /// True chỉ khi SDK thật sự authorize + seal khớp (chống patch `state`).
+    /// Session local hợp lệ (SDK + seal) — chưa đủ để vào app.
     var isSessionValid: Bool {
-        guard state == .authorized else { return false }
-        let k = licenseKey
-        guard !k.isEmpty else { return false }
-        return authSeal != 0 && authSeal == Self.computeSeal(key: k)
+        sessionProbeA() && sessionProbeB()
     }
 
-    /// Package token theo target (BolaMinhDuc vs IntexX).
+    /// Package token theo target.
     static var packageToken: String {
         if let t = Bundle.main.object(forInfoDictionaryKey: "TserverPkgToken") as? String {
             let s = t.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -100,45 +90,141 @@ final class LicenseGate: ObservableObject {
         return "pkg_6yNT9gnfWl9NjBw4vZw80CW9INCCUsNL"
     }
 
-    /// id sản phẩm cho kill-switch server ("bola" / "intexx").
     static var productId: String {
         let v = (Bundle.main.object(forInfoDictionaryKey: "BolaProduct") as? String) ?? "bola"
         let s = v.trimmingCharacters(in: .whitespacesAndNewlines)
         return s.isEmpty ? "bola" : s
     }
 
-    /// Số ngày tối đa được phép không liên lạc được server (0 = không giới hạn).
     static var offlineMaxDays: Int {
         return (Bundle.main.object(forInfoDictionaryKey: "BolaOfflineMaxDays") as? Int) ?? 0
     }
 
+    /// Kéo về màn key — xoá mọi cờ unlock.
+    func lockOut(reason: String? = nil) {
+        authSeal = 0
+        serverUnlocked = false
+        activated = false
+        leaseExpiryUnix = 0
+        canEnterApp = false
+        state = .needKey
+        statusText = "Lease"
+        if let reason, !reason.isEmpty {
+            errorText = reason
+        }
+    }
+
+    /// Gọi từ watchdog / ContentView — mất điều kiện thì lockOut.
+    @discardableResult
+    func revalidate() -> Bool {
+        let ok = evaluateEnter()
+        if canEnterApp != ok {
+            if ok {
+                canEnterApp = true
+                state = .authorized
+            } else if canEnterApp {
+                lockOut(reason: "Phiên key không hợp lệ — nhập lại key.")
+            }
+        }
+        return ok
+    }
+
+    // MARK: - private
+
+    /// Hai probe khác nhau (cùng logic) — patch 1 chỗ `return true` chưa đủ.
+    private func sessionProbeA() -> Bool {
+        guard state == .authorized || canEnterApp || authSeal != 0 else { return false }
+        let k = licenseKey
+        guard !k.isEmpty, authSeal != 0 else { return false }
+        return authSeal == Self.computeSeal(key: k)
+    }
+
+    private func sessionProbeB() -> Bool {
+        let k = licenseKey
+        guard !k.isEmpty else { return false }
+        let expected = Self.computeSeal(key: k)
+        return authSeal != 0 && authSeal == expected && expected != 0
+    }
+
+    private func evaluateEnter() -> Bool {
+        let k = licenseKey
+        guard !k.isEmpty else { return false }
+        guard authSeal != 0, authSeal == Self.computeSeal(key: k) else { return false }
+        guard serverUnlocked else { return false }
+        if leaseExpiryUnix > 0, Int(Date().timeIntervalSince1970) >= leaseExpiryUnix {
+            return false
+        }
+        return true
+    }
+
     private static func computeSeal(key: String) -> UInt64 {
-        // FNV-1a 64 trên "key|pkg|product" — không dùng crypto nặng; đủ chống patch 1 chỗ.
         let raw = "\(key)|\(packageToken)|\(productId)"
         var h: UInt64 = 0xcbf29ce484222325
         for b in raw.utf8 {
             h ^= UInt64(b)
             h = h &* 0x100000001b3
         }
-        return h
+        // salt thứ 2 — đổi công thức nhẹ so với bản seal cũ
+        h ^= 0x9e3779b97f4a7c15
+        return h == 0 ? 1 : h
     }
 
-    private func afterAuthorized() {
+    private func beginAuthorizedFlow() {
         remainingText = APIClient.currentKeyRemainingText()
         let k = licenseKey
-        authSeal = k.isEmpty ? 0 : Self.computeSeal(key: k)
+        guard !k.isEmpty else {
+            lockOut(reason: "SDK không trả key — thử lại.")
+            return
+        }
+        authSeal = Self.computeSeal(key: k)
         if let info = APIClient.currentKeyInfo() {
             NSLog("tserver key info: %@", String(describing: info))
-            // hạn còn lại của key → đóng vào patch (server cap 30 ngày).
             if let rem = info["remainingSeconds"] as? NSNumber, rem.intValue > 0 {
                 leaseExpiryUnix = Int(Date().timeIntervalSince1970) + rem.intValue
             }
         }
-        // đăng ký thiết bị với server patch (một lần / phiên)
-        guard !activated else { return }
-        activated = true
-        PatchClient.activate(license: licenseKey, device: ServerConfig.deviceId) { ok, msg in
-            if !ok { NSLog("server activate failed: %@", msg) }
+
+        // Chưa mở UI — chờ server activate (hoặc offline grace).
+        state = .starting
+        statusText = "Auth"
+        errorText = ""
+
+        let allowOffline = Self.offlineMaxDays > 0
+        PatchClient.activate(license: k, device: ServerConfig.deviceId) { [weak self] ok, msg in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if ok {
+                    self.serverUnlocked = true
+                    self.activated = true
+                    self.state = .authorized
+                    self.canEnterApp = self.evaluateEnter()
+                    if !self.canEnterApp {
+                        self.lockOut(reason: "Seal không khớp — nhập lại key.")
+                    }
+                } else if allowOffline, self.sessionProbeB() {
+                    // IntexX: cho vào tạm khi mất mạng
+                    self.serverUnlocked = true
+                    self.state = .authorized
+                    self.canEnterApp = self.evaluateEnter()
+                    NSLog("server activate failed (offline grace): %@", msg)
+                } else {
+                    self.lockOut(reason: msg.isEmpty
+                                 ? "Không xác thực được server — kiểm tra mạng / key."
+                                 : msg)
+                }
+            }
         }
+    }
+
+    private func startWatchdog() {
+        watchdog?.invalidate()
+        let t = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            if self.canEnterApp || self.state == .authorized {
+                _ = self.revalidate()
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        watchdog = t
     }
 }

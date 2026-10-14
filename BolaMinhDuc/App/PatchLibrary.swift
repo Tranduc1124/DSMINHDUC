@@ -52,9 +52,9 @@ enum PatchLibrary {
     /// trailer, so they are never injected — the patch gate would keep them off
     /// anyway, and failing early gives a clear message.
     ///
-    /// Bypass màn key → licenseKey rỗng → luôn nil (không fallback bundle).
+    /// Bypass màn key → canEnterApp false → luôn nil (không fallback bundle).
     static func latest() -> PatchFile? {
-        guard LicenseGate.shared.isSessionValid else { return nil }
+        guard LicenseGate.shared.canEnterApp else { return nil }
         let license = LicenseGate.shared.licenseKey
         guard !license.isEmpty else { return nil }
         let cache = remoteCacheURL
