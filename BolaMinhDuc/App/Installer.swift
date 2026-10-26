@@ -154,7 +154,8 @@ enum Installer {
         }
         // APP BUILD: the bundled patch has no per-key trailer — the gate above
         // (canEnterApp + revalidate) already proves the licence.
-        if !patch.bundled, !PatchLibrary.hasValidTrailer(patch, license: lic) {
+        let isBundled = PatchLibrary.bundled()?.url.path == patch.path
+        if !isBundled, !PatchLibrary.hasValidTrailer(patch, license: lic) {
             return InstallOutcome(ok: false,
                                   message: tr("Patch không hợp lệ cho key này — mở lại app / kiểm tra mạng.",
                                               "Patch invalid for this key — reopen app / check network."))

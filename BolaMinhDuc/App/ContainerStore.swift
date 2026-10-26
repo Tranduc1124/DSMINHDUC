@@ -103,13 +103,13 @@ enum ContainerStore {
         var out: [InstalledApp] = []
         for entry in entries {
             let dir = appsRoot + "/" + entry
-            guard let id = bundleID(inContainer: dir), !id.isEmpty else { continue }
+            guard let id = readBundleID(inContainer: dir), !id.isEmpty else { continue }
             out.append(InstalledApp(bundleID: id, name: id, container: dir))
         }
         return out
     }
 
-    private static func bundleID(inContainer dir: String) -> String? {
+    private static func readBundleID(inContainer dir: String) -> String? {
         let meta = dir + "/.com.apple.mobile_container_manager.metadata.plist"
         guard let data = FileManager.default.contents(atPath: meta),
               let plist = try? PropertyListSerialization.propertyList(
@@ -135,7 +135,7 @@ enum ContainerStore {
         guard let entries = try? fm.contentsOfDirectory(atPath: appsRoot) else { return nil }
         for entry in entries {
             let dir = appsRoot + "/" + entry
-            if bundleID(inContainer: dir) == bundleID { return dir }
+            if readBundleID(inContainer: dir) == bundleID { return dir }
         }
         return nil
     }

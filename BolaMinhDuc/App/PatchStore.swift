@@ -118,7 +118,7 @@ final class PatchStore: ObservableObject {
             p.rules.append(PatchRule(bundleID: e.bundleID,
                                      relativePath: rel,
                                      fileName: stored,
-                                     sha256: sha256(data),
+                                     sha256: Self.sha256(data),
                                      size: data.count))
         }
 
@@ -150,7 +150,7 @@ final class PatchStore: ObservableObject {
         p.rules.append(PatchRule(bundleID: bundleID,
                                  relativePath: rel,
                                  fileName: stored,
-                                 sha256: sha256(data),
+                                 sha256: Self.sha256(data),
                                  size: data.count))
         p.status = .prepared
         save(p)
