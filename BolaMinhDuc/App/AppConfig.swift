@@ -1,13 +1,22 @@
 import Foundation
 
-/// Build switches (compile-time constants).
+/// Build switches.
 enum AppConfig {
-    /// `true`  = bật lại hệ thống key TserVer (màn key + activate server).
-    /// `false` = bản KHÔNG DÙNG KEY: mở app vào thẳng ContentView,
-    ///           không gọi SDK, không gọi server license.
+    /// Có bắt buộc dùng key TserVer không.
     ///
-    /// Đổi sang `true` là có key lại, không cần sửa chỗ nào khác.
-    static let requireKey = false
+    /// - MinDo  (`BolaProduct = bola`)   : KHÔNG dùng key — mở thẳng vào app.
+    /// - IntexX (`BolaProduct = intexx`) : vẫn dùng key (bản đại lí).
+    ///
+    /// Muốn bật key lại cho MinDo: thêm `case "bola": return true` bên dưới.
+    static let requireKey: Bool = {
+        let raw = (Bundle.main.object(forInfoDictionaryKey: "BolaProduct") as? String) ?? "bola"
+        switch raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "intexx":
+            return true
+        default:
+            return false
+        }
+    }()
 
     /// "Key" giả cho bản keyless — để các đoạn code cũ (trailer patch, key bar,
     /// log) vẫn chạy mà không cần license thật.
