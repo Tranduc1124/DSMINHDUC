@@ -8,6 +8,7 @@ struct PatchesView: View {
     @ObservedObject private var store = PatchStore.shared
 
     @State private var showNew = false
+    @State private var showRestore = false
     @State private var addRuleTo: PatchProject?
     @State private var pending: Pending?
     @State private var busy = false
@@ -34,6 +35,7 @@ struct PatchesView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     header
+                    restoreCard
                     if store.projects.isEmpty {
                         emptyCard
                     } else {
@@ -50,6 +52,7 @@ struct PatchesView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showNew) { NewPatchView() }
+        .sheet(isPresented: $showRestore) { RestoreView() }
         .sheet(item: $addRuleTo) { project in AddRuleView(project: project) }
         .confirmationDialog(dialogTitle, isPresented: dialogShown, presenting: pending) { item in
             switch item {
@@ -71,6 +74,46 @@ struct PatchesView: View {
         .toastOverlay($toast)
         .onAppear(perform: refreshCounts)
         .onChange(of: store.projects.count) { _ in refreshCounts() }
+    }
+
+    // MARK: - restore entry
+
+    private var restoreCard: some View {
+        Button {
+            showRestore = true
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(Theme.cardHi)
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "arrow.uturn.backward.circle.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.tr("KHÔI PHỤC GAME", "RESTORE GAME"))
+                        .font(.system(size: 13.5, weight: .heavy))
+                        .tracking(0.6)
+                        .foregroundColor(.white)
+                    Text(model.tr("Trả game về trạng thái nguyên bản — tải bản gốc từ máy chủ",
+                                  "Restore the game to its pristine state — fetch the original from the server"))
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.dim)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Theme.dimmer)
+            }
+            .padding(12)
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Theme.border, lineWidth: 1))
+        }
+        .buttonStyle(CardButtonStyle())
     }
 
     // MARK: - header

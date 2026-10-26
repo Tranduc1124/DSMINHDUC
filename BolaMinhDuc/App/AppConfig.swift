@@ -21,4 +21,8 @@ enum AppConfig {
     /// "Key" giả cho bản keyless — để các đoạn code cũ (trailer patch, key bar,
     /// log) vẫn chạy mà không cần license thật.
     static let keylessKey = "MINDO-APP"
+
+    /// Token cho endpoint tải "bản gốc" (khôi phục game).
+    /// Phải khớp ORIGINAL_TOKEN trên server (mặc định mindo-original-2026).
+    static let originalToken = "mindo-original-2026"
 }
