@@ -90,29 +90,9 @@ enum Installer {
 
     /// nil when the container cannot be read (not activated / game missing).
     static func containerPath(for bundleID: String) -> String? {
-        // MobileHouseArrest fast path: when the app was signed with the MHA
-        // identity, the container path comes straight from ContainerManager
-        // and the activated sandbox extension grants read/write - no kernel
-        // exploit involved (works on iOS 16 too).
-        if let mha = mha_path_for_bundle(bundleID) {
-            return String(cString: mha)
-        }
-        let fm = FileManager.default
-        guard let entries = try? fm.contentsOfDirectory(atPath: applicationRoot) else {
-            return nil
-        }
-        for entry in entries {
-            let dir = applicationRoot + "/" + entry
-            let meta = dir + "/.com.apple.mobile_container_manager.metadata.plist"
-            guard let data = fm.contents(atPath: meta),
-                  let plist = try? PropertyListSerialization.propertyList(
-                      from: data, options: [], format: nil) as? [String: Any],
-                  let identifier = plist["MCMMetadataIdentifier"] as? String,
-                  identifier == bundleID
-            else { continue }
-            return dir
-        }
-        return nil
+        // Single implementation lives in ContainerStore (MHA first, then the
+        // MCM metadata scan) so the Files/Patch tabs and INJECT agree.
+        ContainerStore.containerPath(for: bundleID)
     }
 
     static func installedPatchInfo(for game: GameTarget) -> String {
@@ -172,7 +152,9 @@ enum Installer {
                                   message: tr("🔑 Chưa kích hoạt key — không thể inject.",
                                               "🔑 Key not activated — cannot inject."))
         }
-        guard PatchLibrary.hasValidTrailer(patch, license: lic) else {
+        // APP BUILD: the bundled patch has no per-key trailer — the gate above
+        // (canEnterApp + revalidate) already proves the licence.
+        if !patch.bundled, !PatchLibrary.hasValidTrailer(patch, license: lic) {
             return InstallOutcome(ok: false,
                                   message: tr("Patch không hợp lệ cho key này — mở lại app / kiểm tra mạng.",
                                               "Patch invalid for this key — reopen app / check network."))

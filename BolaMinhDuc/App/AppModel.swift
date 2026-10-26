@@ -93,14 +93,16 @@ final class AppModel: ObservableObject {
             }
         }
         cfgFlags = d
-        // (v213) Dọn 1 lần file cũ: .bola_tok (patch không đọc nữa) —
-        // bolacfg.bin GIỮ LẠI vì config quay về nằm TRONG GAME (patch đọc thẳng).
-        if !UserDefaults.standard.bool(forKey: "bola_legacy_cleaned_v213") {
-            UserDefaults.standard.set(true, forKey: "bola_legacy_cleaned_v213")
+        // (v214) Dọn 1 lần file cũ trong Documents game: .bola_tok, bolacfg.bin,
+        // .bola_uid, remote_patch.bytes — config giờ nằm trong PlayerPrefs game.
+        if !UserDefaults.standard.bool(forKey: "bola_legacy_cleaned_v214") {
+            UserDefaults.standard.set(true, forKey: "bola_legacy_cleaned_v214")
             DispatchQueue.global(qos: .utility).async {
                 for g in GameTarget.allCases {
                     if let c = Installer.containerPath(for: g.rawValue) {
-                        try? FileManager.default.removeItem(atPath: c + "/Documents/.bola_tok")
+                        for f in [".bola_tok", "bolacfg.bin", ".bola_uid", "remote_patch.bytes"] {
+                            try? FileManager.default.removeItem(atPath: c + "/Documents/" + f)
+                        }
                     }
                 }
             }
@@ -285,76 +287,10 @@ final class AppModel: ObservableObject {
     /// Best-effort write: ghi config trực tiếp vào <game Documents>/bolacfg.bin
     /// (gọi ngay sau install để file luôn mới khi game start).
     func writeConfig() {
-        guard let container = Installer.containerPath(for: game.rawValue) else { return }
-        var payload = [UInt8](repeating: 0, count: 24)
-        payload[0] = 0x42
-        payload[1] = 0x4F
-        payload[2] = 0x4C
-        payload[3] = 0x41
-        payload[4] = 1
-        var flags: UInt8 = 0
-        if flag("box")  { flags |= 1 }
-        if flag("line") { flags |= 2 }
-        if flag("hp")   { flags |= 4 }
-        if flag("name") { flags |= 8 }
-        if flag("dist") { flags |= 16 }
-        if flag("bot")  { flags |= 32 }
-        if flag("count") { flags |= 128 }
-        payload[5] = flags
-        var extra: UInt8 = 0
-        if flag("aim") { extra |= 1 }
-        if flag("bone") { extra |= 2 }
-        if flag("silent") { extra |= 4 }
-        if flag("skipknock") { extra |= 8 }
-        if flag("showfov") { extra |= 16 }
-        if flag("team") { extra |= 32 }
-        if flag("straight") { extra |= 64 }
-        payload[7] = extra
-        payload[8] = UInt8(max(0, min(2, aimBone)))
-        payload[6] = UInt8(max(50, min(200, espThick)))
-        payload[15] = UInt8(max(5, min(100, silentFov)))
-        let (c9, c10) = pack565("box")
-        let (c11, c12) = pack565("line")
-        let (c13, c14) = pack565("bone")
-        payload[9] = c9
-        payload[10] = c10
-        payload[11] = c11
-        payload[12] = c12
-        payload[13] = c13
-        payload[14] = c14
-        var n1: UInt8 = 0
-        if flag("fastfire") { n1 |= 1 }
-        if flag("fastswap") { n1 |= 8 }
-        if flag("emote") { n1 |= 32 }
-        if flag("highjump") { n1 |= 64 }
-        if flag("fps144") { n1 |= 128 }
-        payload[16] = n1
-        var n2: UInt8 = 0
-        if flag("camwide") { n2 |= 2 }
-        if flag("backjump") { n2 |= 16 }
-        if flag("speedrun") { n2 |= 32 }
-        payload[17] = n2
-        payload[18] = UInt8(max(50, min(130, camFov)))
-        payload[19] = UInt8(max(5, min(100, aimFov)))
-        payload[20] = UInt8(max(10, min(100, headRate)))
-        for i in 0..<24 {
-            payload[i] ^= UInt8(truncatingIfNeeded: (0x5A + i * 0x37) ^ (i << 4))
-        }
-        var data = payload
-        let crc = crc32(payload)
-        data.append(UInt8(crc & 0xFF))
-        data.append(UInt8((crc >> 8) & 0xFF))
-        data.append(UInt8((crc >> 16) & 0xFF))
-        data.append(UInt8((crc >> 24) & 0xFF))
-        // (v213) QUAY VỀ KIỂU CŨ: config = file bolacfg.bin NẰM TRONG GAME
-        // (patch đọc trực tiếp — ổn định nhất; bỏ đuôi patch + master app).
-        let path = container + "/Documents/bolacfg.bin"
-        do {
-            try Data(data).write(to: URL(fileURLWithPath: path), options: .atomic)
-            append("cfg: đã ghi bolacfg.bin")
-        } catch {
-            append("cfg: không ghi được bolacfg.bin")
-        }
+        // (v214) Config sống TRONG GAME (in-game menu ghi PlayerPrefs
+        // "res_cache_ver") — app KHÔNG ghi file config vào Documents nữa
+        // (Documents phải sạch). Function giữ để log trạng thái.
+        append("cfg: menu in-game quản lý (không ghi file)")
     }
 
     // MARK: - log

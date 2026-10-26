@@ -61,7 +61,11 @@ enum PatchLibrary {
         let fm = FileManager.default
         guard let attrs = try? fm.attributesOfItem(atPath: cache.path),
               let size = attrs[.size] as? Int, size > 4096,
-              hasValidTrailer(cache, license: license) else { return nil }
+              hasValidTrailer(cache, license: license) else {
+            // APP BUILD: no server needed — fall back to the patch shipped in
+            // the IPA. The licence was already proven by canEnterApp above.
+            return bundled()
+        }
         return PatchFile(url: cache,
                          name: "BolaminhducMenu-OTA",
                          size: size,

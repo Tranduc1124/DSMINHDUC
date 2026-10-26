@@ -1,30 +1,50 @@
 import SwiftUI
 
-/// Root: NavigationStack, no tab bar.
-/// Home -> Config(game) via push; Settings via Delta-style sheet.
-/// Language picker = custom bottom panel; the settings sheet slides away first.
+private enum RootTab: Hashable {
+    case home
+    case patch
+    case files
+    case tools
+}
+
+/// Root shell: Astra-style bottom tabs (Home / Patch / Files / Tools).
+/// Home keeps the existing push navigation to ConfigView (features + INJECT);
+/// Settings stays a sheet, the language picker a bottom panel.
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var path: [GameTarget] = []
     @State private var showSettings = false
     @State private var showLanguage = false
+    @State private var tab: RootTab = .home
 
     var body: some View {
-        NavigationStack(path: $path) {
-            HomeView(
-                openGame: { game in
-                    model.game = game
-                    model.refreshInstalled()
-                    path.append(game)
-                },
-                openSettings: { showSettings = true }
-            )
-            .navigationDestination(for: GameTarget.self) { game in
-                ConfigView(game: game) { path.removeLast() }
+        Group {
+            switch tab {
+            case .home:
+                NavigationStack(path: $path) {
+                    HomeView(
+                        openGame: { game in
+                            model.game = game
+                            model.refreshInstalled()
+                            path.append(game)
+                        },
+                        openSettings: { showSettings = true }
+                    )
+                    .navigationDestination(for: GameTarget.self) { game in
+                        ConfigView(game: game) { path.removeLast() }
+                    }
+                }
+            case .patch:
+                NavigationStack { PatchesView() }
+            case .files:
+                NavigationStack { FileBrowserView() }
+            case .tools:
+                NavigationStack { ToolsView() }
             }
         }
         .tint(.white)
+        .safeAreaInset(edge: .bottom, spacing: 0) { tabBar }
         .sheet(isPresented: $showSettings) {
             SettingsView(openLanguage: {
                 showSettings = false
@@ -49,6 +69,46 @@ struct ContentView: View {
             }
         }
         .toastOverlay(showSettings ? Binding<String?>.constant(nil) : $model.toastText)
+    }
+
+    // MARK: - bottom tabs
+
+    private var tabBar: some View {
+        HStack(spacing: 0) {
+            tabItem(.home, "house.fill", "HOME")
+            tabItem(.patch, "square.stack.3d.up.fill", "PATCH")
+            tabItem(.files, "folder.fill", "FILES")
+            tabItem(.tools, "wrench.and.screwdriver.fill", "TOOLS")
+        }
+        .padding(.top, 9)
+        .padding(.bottom, 6)
+        .background(
+            Theme.card
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Theme.border)
+                        .frame(height: 1)
+                }
+                .ignoresSafeArea(edges: .bottom)
+        )
+    }
+
+    private func tabItem(_ target: RootTab, _ icon: String, _ label: String) -> some View {
+        Button {
+            tab = target
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 8.5, weight: .heavy))
+                    .tracking(0.6)
+            }
+            .foregroundColor(tab == target ? .white : Theme.dimmer)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: language panel (slides up from the bottom)
