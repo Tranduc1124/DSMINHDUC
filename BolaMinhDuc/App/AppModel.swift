@@ -568,15 +568,23 @@ final class AppModel: ObservableObject {
         let game = self.game
         restoring = true
         busy = true
+        append("restore: bắt đầu khôi phục \(game.title)…")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = Installer.restore(game: game)
+            let report = PatchInstaller.restoreGame(bundleID: game.rawValue)
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.restoring = false
                 self.busy = false
                 self.lastActionTime = Date()
-                self.append("restore: " + result.message)
-                self.showToast(result.message)
+                for line in report.lines {
+                    self.append("restore: " + line)
+                }
+                let msg = report.ok
+                    ? self.tr("Đã khôi phục \(game.title) về nguyên bản",
+                              "\(game.title) restored to original")
+                    : self.tr("Khôi phục chưa hoàn tất (\(report.failed) lỗi)",
+                              "Restore incomplete (\(report.failed) errors)")
+                self.showToast(msg)
                 self.refreshInstalled()
             }
         }
