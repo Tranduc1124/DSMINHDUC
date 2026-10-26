@@ -163,7 +163,7 @@ struct RestoreView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 11)
             }
-            .buttonStyle(patched ? WhiteButtonStyle() : GhostButtonStyle())
+            .buttonStyle(RestoreButtonStyle(active: patched))
             .disabled(busy)
         }
         .padding(13)
@@ -336,5 +336,26 @@ struct RestoreView: View {
         let f = DateFormatter()
         f.dateFormat = "dd/MM HH:mm"
         return f.string(from: d)
+    }
+}
+
+/// White when the game still has patch files (primary action),
+/// ghost when it is already pristine.
+struct RestoreButtonStyle: ButtonStyle {
+    let active: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundColor(active ? .black : .white)
+            .background(
+                active
+                    ? Color.white.opacity(configuration.isPressed ? 0.75 : 1)
+                    : Theme.cardHi.opacity(configuration.isPressed ? 0.7 : 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(active ? Color.clear : Theme.borderHi, lineWidth: 1)
+            )
     }
 }
