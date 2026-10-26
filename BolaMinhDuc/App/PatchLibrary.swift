@@ -103,6 +103,11 @@ enum PatchLibrary {
     ///    app keeps updating even if the server is unreachable).
     /// `completion` gets the downloaded size (0 on any failure).
     static func refreshRemote(completion: @escaping (Int) -> Void) {
+        // KEYLESS BUILD: bundled patch only, no server fetch.
+        guard AppConfig.requireKey else {
+            DispatchQueue.main.async { completion(0) }
+            return
+        }
         let license = LicenseGate.shared.licenseKey
         if !license.isEmpty {
             PatchClient.refreshPatch(license: license, device: ServerConfig.deviceId) { ok in

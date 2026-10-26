@@ -20,6 +20,8 @@ final class VersionGate: ObservableObject {
     private let lastOkKey = "bola_last_server_ok"
 
     func check() {
+        // KEYLESS BUILD: no server, no kill switch.
+        guard AppConfig.requireKey else { return }
         // Luật offline (chỉ áp cho bản có cấu hình, vd IntexX): quá N ngày
         // không xác thực được với server -> dừng hoạt động.
         let maxDays = LicenseGate.offlineMaxDays
@@ -63,6 +65,7 @@ final class VersionGate: ObservableObject {
 
     /// Kiểm tra định kỳ 10 phút/lần — kill-switch áp dụng nhanh cả khi app mở lâu.
     func startPeriodic() {
+        guard AppConfig.requireKey else { return }
         guard timer == nil else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
             self?.check()

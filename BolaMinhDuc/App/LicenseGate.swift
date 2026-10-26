@@ -41,6 +41,12 @@ final class LicenseGate: ObservableObject {
         guard !started else { return }
         started = true
 
+        // KEYLESS BUILD: no SDK, no server, no key screen.
+        if !AppConfig.requireKey {
+            unlockKeyless()
+            return
+        }
+
         TserverForceLoadNativeUiPacks()
         APIClientConfigure(Self.packageToken)
 
@@ -73,12 +79,14 @@ final class LicenseGate: ObservableObject {
 
     /// Key hiện tại (SDK giữ lease).
     var licenseKey: String {
+        if !AppConfig.requireKey { return AppConfig.keylessKey }
         return APIClient.currentKeyText()
     }
 
     /// Session local hợp lệ (SDK + seal) — chưa đủ để vào app.
     var isSessionValid: Bool {
-        sessionProbeA() && sessionProbeB()
+        if !AppConfig.requireKey { return true }
+        return sessionProbeA() && sessionProbeB()
     }
 
     /// Package token theo target.
@@ -117,6 +125,10 @@ final class LicenseGate: ObservableObject {
     /// Gọi từ watchdog / ContentView — mất điều kiện thì lockOut.
     @discardableResult
     func revalidate() -> Bool {
+        if !AppConfig.requireKey {
+            if !canEnterApp { unlockKeyless() }
+            return true
+        }
         let ok = evaluateEnter()
         if canEnterApp != ok {
             if ok {
@@ -130,6 +142,19 @@ final class LicenseGate: ObservableObject {
     }
 
     // MARK: - private
+
+    /// KEYLESS: set every unlock flag without the SDK.
+    private func unlockKeyless() {
+        authSeal = 1
+        serverUnlocked = true
+        activated = true
+        leaseExpiryUnix = 0
+        canEnterApp = true
+        state = .authorized
+        statusText = "Keyless"
+        remainingText = ""
+        errorText = ""
+    }
 
     /// Hai probe khác nhau (cùng logic) — patch 1 chỗ `return true` chưa đủ.
     private func sessionProbeA() -> Bool {

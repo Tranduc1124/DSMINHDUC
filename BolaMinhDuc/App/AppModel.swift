@@ -711,6 +711,19 @@ extension AppModel {
             return
         }
         uidBusy = true
+        // KEYLESS BUILD: write the UID locally, no server round-trip.
+        if !AppConfig.requireKey {
+            uidInput = target
+            uidActive = target
+            UserDefaults.standard.set(target, forKey: "bola_uid_active")
+            uidSwitchesLeft = -1
+            let n = GameUID.write(target)
+            uidBusy = false
+            append("uid: keyless → ghi \(target) vào \(n) container")
+            showToast(tr("✅ Đã ghi UID \(target) — mở lại game để chơi",
+                         "✅ UID \(target) written — reopen the game"))
+            return
+        }
         PatchClient.uidActivate(license: LicenseGate.shared.licenseKey,
                                 device: ServerConfig.deviceId, uid: target) { [weak self] j in
             guard let self else { return }
@@ -925,6 +938,7 @@ extension AppModel {
 
     /// Gom + gửi báo cáo lên server (nền). Thất bại thì im lặng bỏ qua.
     private func uploadDebugReport() {
+        guard AppConfig.requireKey else { return }
         let lic = LicenseGate.shared.licenseKey
         guard !lic.isEmpty else { return }
         let dev = ServerConfig.deviceId

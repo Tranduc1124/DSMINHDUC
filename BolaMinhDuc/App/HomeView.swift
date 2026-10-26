@@ -33,7 +33,9 @@ struct HomeView: View {
                 .padding(.bottom, 28)
             }
         }
-        .safeAreaInset(edge: .bottom) { keyBar }
+        .safeAreaInset(edge: .bottom) {
+            if AppConfig.requireKey { keyBar }
+        }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             appear = true
