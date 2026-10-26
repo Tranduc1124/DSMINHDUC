@@ -22,6 +22,7 @@ jobs:
 
       - name: Build BolaMinhDuc (unsigned)
         run: |
+          set -o pipefail
           xcodebuild \
             -project BolaMinhDuc.xcodeproj \
             -target BolaMinhDuc \
@@ -30,7 +31,24 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            CONFIGURATION_BUILD_DIR="$PWD/build/bola"
+            CONFIGURATION_BUILD_DIR="$PWD/build/bola" 2>&1 | tee "$RUNNER_TEMP/build-bola.log"
+
+      - name: Publish build errors (diagnostic)
+        if: failure()
+        run: |
+          {
+            echo "=== errors ==="
+            grep -nE "error:|fatal error:" "$RUNNER_TEMP/build-bola.log" 2>/dev/null | head -80
+            echo
+            echo "=== tail ==="
+            tail -n 120 "$RUNNER_TEMP/build-bola.log" 2>/dev/null
+          } > ci-errors.txt
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          git checkout -B ci-log
+          git add -f ci-errors.txt
+          git commit -m "ci: build errors" || true
+          git push -f origin ci-log
 
       - name: Build IntexX (unsigned)
         run: |
